@@ -802,6 +802,12 @@ _scratch_mkfs()
     tmpfs)
 	# do nothing for tmpfs
 	;;
+    NOVA)
+        _scratch_cleanup_files
+	;;
+    pmfs)
+        _scratch_cleanup_files
+	;;
     f2fs)
         $MKFS_F2FS_PROG $MKFS_OPTIONS $* $SCRATCH_DEV > /dev/null
 	;;
