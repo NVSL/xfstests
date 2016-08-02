@@ -302,7 +302,7 @@ _mount_opts()
 		;;
 	ext2|ext3|ext4|ext4dev)
 		# acls & xattrs aren't turned on by default on ext$FOO
-		export MOUNT_OPTIONS="-o acl,user_xattr $EXT_MOUNT_OPTIONS"
+		export MOUNT_OPTIONS="-o acl,user_xattr,dax $EXT_MOUNT_OPTIONS"
 		;;
 	f2fs)
 		export MOUNT_OPTIONS="-o acl,user_xattr $F2FS_MOUNT_OPTIONS"
