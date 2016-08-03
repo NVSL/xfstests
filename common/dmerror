@@ -23,6 +23,16 @@ if [ $? -eq 0 ]; then
 	_notrun "Cannot run tests with DAX on dmerror devices"
 fi
 
+echo $FSTYP | grep -q NOVA
+if [ $? -eq 0 ]; then
+	_notrun "Cannot run tests with DAX on dmerror devices"
+fi
+
+echo $FSTYP | grep -q pmfs
+if [ $? -eq 0 ]; then
+	_notrun "Cannot run tests with DAX on dmerror devices"
+fi
+
 _dmerror_init()
 {
 	local dm_backing_dev=$SCRATCH_DEV
