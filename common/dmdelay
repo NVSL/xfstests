@@ -26,6 +26,16 @@ if [ $? -eq 0 ]; then
 	_notrun "Cannot run tests with DAX on dmdelay devices"
 fi
 
+echo $FSTYP | grep -q NOVA
+if [ $? -eq 0 ]; then
+	_notrun "Cannot run tests with DAX on dmdelay devices"
+fi
+
+echo $FSTYP | grep -q pmfs
+if [ $? -eq 0 ]; then
+	_notrun "Cannot run tests with DAX on dmdelay devices"
+fi
+
 _init_delay()
 {
 	local BLK_DEV_SIZE=`blockdev --getsz $SCRATCH_DEV`
