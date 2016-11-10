@@ -3896,8 +3896,8 @@ _require_xfs_mkfs_without_validation()
 _nova_create_snapshot()
 {
 	device=`echo $TEST_DEV | grep -o "[a-z0-9]\+$"`
-	cmd="echo 1 > /proc/fs/NOVA/$device/create_snapshot"
-	$cmd
+	filename="/proc/fs/NOVA/$device/create_snapshot"
+	echo 1 > $filename
 }
 
 _nova_mount_snapshot()
@@ -3910,8 +3910,8 @@ _nova_mount_snapshot()
 _nova_delete_snapshot()
 {
 	device=`echo $TEST_DEV | grep -o "[a-z0-9]\+$"`
-	cmd="echo $1 > /proc/fs/NOVA/$device/delete_snapshot"
-	$cmd
+	filename="/proc/fs/NOVA/$device/delete_snapshot"
+	echo $1 > $filename
 }
 
 _nova_create_files()
