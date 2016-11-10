@@ -3893,8 +3893,128 @@ _require_xfs_mkfs_without_validation()
 	fi
 }
 
+_nova_create_snapshot()
+{
+	device=`echo $TEST_DEV | grep -o "[a-z0-9]\+$"`
+	cmd="echo 1 > /proc/fs/NOVA/$device/create_snapshot"
+	$cmd
+}
+
+_nova_mount_snapshot()
+{
+	umount $TEST_DIR
+	cmd="mount -t NOVA -o snapshot=$1 $TEST_DEV $TEST_DIR"
+	$cmd
+}
+
+_nova_delete_snapshot()
+{
+	device=`echo $TEST_DEV | grep -o "[a-z0-9]\+$"`
+	cmd="echo $1 > /proc/fs/NOVA/$device/delete_snapshot"
+	$cmd
+}
+
+_nova_create_files()
+{
+	n=$1;
+	for i in `seq 1 $n`
+	do
+		touch $TEST_DIR/f$i
+	done
+}
+
+_nova_delete_files()
+{
+        n=$1;
+        for i in `seq 1 $n`
+        do
+                rm $TEST_DIR/f$i
+        done
+}
+
+
+_nova_change_file_attributes()
+{
+        name=$1
+        RANGE=8
+
+        # file permissions
+        n1=$RANDOM
+        let "n1 %= $RANGE"
+        n2=$RANDOM
+        let "n2 %= $RANGE"
+        n3=$RANDOM
+        let "n3 %= $RANGE"
+
+        chmod $n1$n2$n3 $name
+
+        # file size
+        SIZE=1024
+        s=$RANDOM
+        let "s %= $SIZE"
+
+        #truncate -s %sK $name
+}
+
+_nova_modify_inode_state()
+{
+        n=$1; 
+        for i in `seq 1 $n`
+        do
+                 _nova_change_file_attributes $TEST_DIR/f$i
+        done
+}
+
+_nova_capture_inode_state()
+{
+	path='f*'
+	cmd="stat $TEST_DIR/$path"
+}
+
+_nova_test_snapshots()
+{
+	setup=$1
+	modify_state=$2
+	capture_state=$3
+	cleanup=$4
+	index=$5
+
+	echo "--> $setup"
+	echo "--> $modify_state"
+	echo "--> $capture_state"
+	echo "--> $cleanup"
+	echo "--> $index"
+
+	$setup $index
+
+	declare -a file_stats
+
+	for i in `seq 0 $n`
+	do
+		$modify_state $index
+		_nova_create_snapshot
+		$capture_state
+		file_stats[$i]=`$cmd`
+	done
+
+	for i in `seq 0 $n`
+	do
+		_nova_mount_snapshot $i
+		$capture_state
+		stats=`$cmd`
+		if ["$stats" == "${file_stats[$i]}"]
+		then
+			echo "Matched"
+		else
+			echo "Not Matched"
+		fi
+	done
+
+	$cleanup $index
+}
+
 init_rc
 
-################################################################################
+####### ########################################################################
 # make sure this script returns success
 /bin/true
