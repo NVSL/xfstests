@@ -56,22 +56,17 @@ modify_state="_nova_modify_inode_state"
 capture_state="_nova_capture_inode_state"
 cleanup_cmd="_nova_delete_files"
 
-echo "-->> $setup_cmd"
-echo "-->> $modify_state"
-echo "-->> $capture_state"
-echo "-->> $cleanup_cmd"
-echo "-->> $index"
-
 _nova_test_snapshots $setup_cmd $modify_state $capture_state $cleanup_cmd $index
 
 
 # if error
-exit
+# exit
 
 # optional stuff if your test has verbose output to help resolve problems
 #echo
 #echo "If failure, check $seqres.full (this) and $seqres.full.ok (reference)"
 
 # success, all done
+
 status=0
 exit

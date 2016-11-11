@@ -3898,13 +3898,13 @@ _nova_create_snapshot()
 	device=`echo $TEST_DEV | grep -o "[a-z0-9]\+$"`
 	filename="/proc/fs/NOVA/$device/create_snapshot"
 	echo 1 > $filename
+	#cat "/proc/fs/NOVA/$device/snapshots"
 }
 
 _nova_mount_snapshot()
 {
 	umount $TEST_DIR
-	cmd="mount -t NOVA -o snapshot=$1 $TEST_DEV $TEST_DIR"
-	$cmd
+	mount -t $FSTYP -o snapshot=$1 $TEST_DEV $TEST_DIR
 }
 
 _nova_delete_snapshot()
@@ -3953,7 +3953,7 @@ _nova_change_file_attributes()
         s=$RANDOM
         let "s %= $SIZE"
 
-        #truncate -s %sK $name
+        truncate -s $s $name
 }
 
 _nova_modify_inode_state()
@@ -3979,34 +3979,40 @@ _nova_test_snapshots()
 	cleanup=$4
 	index=$5
 
-	echo "--> $setup"
-	echo "--> $modify_state"
-	echo "--> $capture_state"
-	echo "--> $cleanup"
-	echo "--> $index"
+	# mount the file system
+	# mount_opts="init"
+	# mount -t $FSTYP -o $mount_opts $TEST_DEV $TEST_DIR
 
 	$setup $index
 
 	declare -a file_stats
 
-	for i in `seq 0 $n`
+	#echo "Index is at $index"
+
+	for k in `seq 1 $index`
 	do
+		#echo "Running at $k"
 		$modify_state $index
 		_nova_create_snapshot
 		$capture_state
-		file_stats[$i]=`$cmd`
+		file_stats[$k]=`$cmd`
+		#echo "Captured array stats at $k"
+		#echo ${file_stats[$k]}
 	done
 
-	for i in `seq 0 $n`
+	for k in `seq 1 $index`
 	do
-		_nova_mount_snapshot $i
+		let "s=$k-1"
+		_nova_mount_snapshot $s
 		$capture_state
 		stats=`$cmd`
-		if ["$stats" == "${file_stats[$i]}"]
-		then
-			echo "Matched"
-		else
-			echo "Not Matched"
+		#echo "checking array at index $k"
+		if [ "$stats"!="${file_stats[$k]}" ]; then
+			echo "Wrong file stats found"
+			echo "In snapshot $s, stats were as follows :"
+			echo $stats
+			echo "But previous stats were as follows :"
+			echo ${file_stats[$k]}
 		fi
 	done
 
