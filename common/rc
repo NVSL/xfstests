@@ -3968,7 +3968,8 @@ _nova_modify_inode_state()
 _nova_capture_inode_state()
 {
 	path='f*'
-	cmd="stat $TEST_DIR/$path"
+	#cmd="stat $TEST_DIR/$path"
+	cmd="ls -l $TEST_DIR/$path"
 }
 
 _nova_test_snapshots()
@@ -4005,14 +4006,18 @@ _nova_test_snapshots()
 		let "s=$k-1"
 		_nova_mount_snapshot $s
 		$capture_state
-		stats=`$cmd`
+		stats1=`$cmd`
 		#echo "checking array at index $k"
-		if [ "$stats"!="${file_stats[$k]}" ]; then
+		stats2="${file_stats[$k]}"
+		if [[ "$stats1" =~ "$stats2" ]];
+		then
+			`echo`
+		else
 			echo "Wrong file stats found"
 			echo "In snapshot $s, stats were as follows :"
-			echo $stats
+			echo $stats1
 			echo "But previous stats were as follows :"
-			echo ${file_stats[$k]}
+			echo $stats2
 		fi
 	done
 

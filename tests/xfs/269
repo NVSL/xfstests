@@ -50,7 +50,7 @@ _supported_fs generic
 _supported_os IRIX Linux
 _require_test
 
-index=3
+index=10
 setup_cmd="_nova_create_files"
 modify_state="_nova_modify_inode_state"
 capture_state="_nova_capture_inode_state"
