@@ -3972,6 +3972,52 @@ _nova_capture_inode_state()
 	cmd="ls -l $TEST_DIR/$path"
 }
 
+_nova_create_directories()
+{
+	n=$1
+        for i in `seq 1 $n`
+        do
+                mkdir $TEST_DIR/dir$i
+                for j in `seq 1 $n`
+                do
+                        touch $TEST_DIR/dir$i/f$j
+                done
+        done
+}
+
+_nova_remove_directories()
+{
+        path='dir*'
+        rm -rf $TEST_DIR/$path
+}
+
+_nova_modify_dir_state()
+{
+	index=$1
+        n=$2
+        let "start=$n*$index+1"
+        let "next=$n+1"
+        let "end=$next*$index"
+        for i in `seq 1 $index`
+        do
+                for j in `seq $start $end`
+                do
+                        rm -rf $TEST_DIR/dir$i/f$j
+                        let "next=$j+$index"
+                        touch $TEST_DIR/dir$i/f$next
+                done
+        done
+}
+
+_nova_capture_dir_state()
+{
+	path='dir*/*'
+	#path='*'
+	cmd="find $TEST_DIR/$path"
+	#cmd="ls -r $TEST_DIR/*"
+	$cmd
+}
+
 _nova_test_snapshot_metadata_overwrite()
 {
 	setup=$1
@@ -3993,12 +4039,13 @@ _nova_test_snapshot_metadata_overwrite()
 	for k in `seq 1 $index`
 	do
 		#echo "Running at $k"
-		$modify_state $index
+		let "s=$k-1"
+		$modify_state $index $s
 		_nova_create_snapshot
 		$capture_state
 		file_stats[$k]=`$cmd`
-		#echo "Captured array stats at $k"
-		#echo ${file_stats[$k]}
+		echo "Captured array stats at $k"
+		echo ${file_stats[$k]}
 	done
 
 	for k in `seq 1 $index`
@@ -4031,6 +4078,7 @@ _nova_setup_single_file()
 
 	dd if=/dev/zero of=$TEST_DIR/$fname bs=4096 count=$bcount iflag=fullblock
 }
+
 _nova_write_data()
 {
 	seek=$1
@@ -4048,6 +4096,8 @@ _nova_read_data()
 
 	cmd="dd if=$TEST_DIR/$fname iflag=skip_bytes,count_bytes,fullblock bs=4096 skip=$skip count=$count"
 }
+
+
 
 _nova_test_snapshot_data_overwrite()
 {
