@@ -3972,7 +3972,7 @@ _nova_capture_inode_state()
 	cmd="ls -l $TEST_DIR/$path"
 }
 
-_nova_test_snapshots()
+_nova_test_snapshot_metadata_overwrite()
 {
 	setup=$1
 	modify_state=$2
@@ -4022,6 +4022,95 @@ _nova_test_snapshots()
 	done
 
 	$cleanup $index
+}
+
+_nova_setup_single_file()
+{
+	bcount=$1	
+	fname=$2
+
+	dd if=/dev/zero of=$TEST_DIR/$fname bs=4096 count=$bcount iflag=fullblock
+}
+_nova_write_data()
+{
+	seek=$1
+	count=$2	
+	fname=$3
+
+	dd if=/dev/random of=$TEST_DIR/$fname iflag=skip_bytes,count_bytes oflag=seek_bytes skip=0 count=$count seek=$seek
+}
+
+_nova_read_data()
+{
+	skip=$1
+	count=$2	
+	fname=$3
+
+	cmd="dd if=$TEST_DIR/$fname iflag=skip_bytes,count_bytes,fullblock bs=4096 skip=$skip count=$count"
+}
+
+_nova_test_snapshot_data_overwrite()
+{
+	iters=$1
+	fname='f1'
+
+	# mount the file system
+	# mount_opts="init"
+	# mount -t $FSTYP -o $mount_opts $TEST_DEV $TEST_DIR
+
+	# Create a file and write some data into it.
+	_nova_create_files 1
+	#_nova_setup_single_file 1 $fname
+	echo "Done setting up file."
+
+	declare -a file_data
+
+	for k in `seq 1 $iters`
+	do
+		let "seek=$k*10"
+
+		# Write some data
+		_nova_write_data $seek 20 $fname
+
+		# Now read what we 'dd' wrote for later comparison.
+		_nova_read_data $seek 40 $fname
+		file_data[$k]=`$cmd`
+
+		# Create a snapshot so that written data is captured into it.
+		_nova_create_snapshot
+
+		#echo ${file_data[$k]}
+	done
+
+	for k in `seq 1 $iters`
+	do
+		let "s=$k-1"
+		let "seek=$k*10"
+
+		# Mount the snapshot and read the data
+		_nova_mount_snapshot $s
+
+		# Now read the contents of the snapshot
+		_nova_read_data $seek 40 $fname
+		data1=`$cmd`
+
+		# Compare if the data
+		data2="${file_data[$k]}"
+		if [[ "$data1" =~ "$data2" ]];
+		then
+			`echo`
+		else
+			echo "Data mismatch"
+			echo "Data written before taking snapshot $s was as follows: $data2"
+			echo "But data read after mounting snapshot is as follows: $data1"
+
+			status=1
+			exit
+		fi
+	done
+
+	# cleanup
+	_nova_delete_files 1
 }
 
 init_rc
