@@ -14,7 +14,18 @@ Building Linux:
 	- run make install
 	- create fsgqa test user ("sudo useradd fsgqa")
 	- create 123456-fsgqa test user ("sudo useradd 123456-fsgqa")
-	
+
+For NOVA, add following lines to your .bashrc:
+
+	export FSTYP=NOVA
+	export TEST_DEV=/dev/pmem0
+	export TEST_DIR=/mnt/ramdisk
+	export SCRATCH_DEV=/dev/pmem1
+	export SCRATCH_MNT=/mnt/scratch
+
+----------------------
+
+
 Building IRIX:
 	- cd into the xfstests directory 
 	- set the ROOT and TOOLROOT env variables for IRIX appropriately
