@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<testsuite tests="373">
+  <testcase classname="generic" name="001"/>
+  <testcase classname="generic" name="002"/>
+  <testcase classname="generic" name="003">
+    <failure type="failure"> - output mismatch (see /home/swanson/xfstes
+ts/results//generic/003.out.bad)
+--- tests/generic/003.out       2017-06-09 22:58:14.768969982 +0000
++++ /home/swanson/xfstests/results//generic/003.out.bad 2017-06-10 03:23
+:28.101095056 +0000
+@@ -1,2 +1,6 @@
+ QA output created by 003
++ERROR: access time has not been updated after accessing file1 first tim
+e
++ERROR: access time has changed for file1 after remount
++ERROR: access time has not been updated after accessing file2
++ERROR: access time has changed for file in read-only filesystem
+ Silence is golden
+...
+(Run 'diff -u tests/generic/003.out /home/swanson/xfstests/results//gene
+ric/003.out.bad'  to see the entire diff)
+</failure>
+  </testcase>
+  <testcase classname="generic" name="005"/>
+</testsuite>
