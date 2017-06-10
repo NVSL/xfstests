@@ -40,7 +40,7 @@
 
 #ifndef Q_GETNEXTQUOTA
 #define Q_GETNEXTQUOTA 0x800009        /* get disk limits and usage >= ID */
-
+#endif
 struct nextdqblk
   {
     u_int64_t dqb_bhardlimit;	/* absolute limit on disk quota blocks alloc */
@@ -54,7 +54,7 @@ struct nextdqblk
     u_int32_t dqb_valid;	/* bitmask of QIF_* constants */
     u_int32_t dqb_id;		/* id for this quota info*/
   };
-#endif
+
 
 #ifndef Q_XGETNEXTQUOTA
 #define Q_XGETNEXTQUOTA XQM_CMD(9)
