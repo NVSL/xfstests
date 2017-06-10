@@ -37,6 +37,18 @@ randomize=false
 export here=`pwd`
 xfile=""
 
+export FSTYP
+export TEST_DEV
+export TEST_DIR
+export SCRATCH_DEV
+export SCRATCH_MNT
+
+FSTYP=${FSTYP:=NOVA}
+TEST_DEV=${TEST_DEV:=/dev/pmem0}
+TEST_DIR=${TEST_DIR:=/mnt/ramdisk}
+SCRATCH_DEV=${SCRATCH_DEV:=/dev/pmem1}
+SCRATCH_MNT=${SCRATCH_MNT:=/mnt/scratch}
+
 DUMP_OUTPUT=false
 
 # start the initialisation work now
