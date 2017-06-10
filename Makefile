@@ -117,3 +117,6 @@ $(SRCTAR) : default
 	  -rf $(PKG_NAME)-$(PKG_VERSION).tar $(CONFIGURE)
 	$(Q)$(ZIP) $(PKG_NAME)-$(PKG_VERSION).tar
 	echo Wrote: $@
+
+prereqs:
+	sudo apt-get -y install emacs xfslibs-dev uuid-dev libtool-bin e2fsprogs automake gcc libuuid1 quota attr libattr1-dev make libacl1-dev libaio-dev xfsprogs libgdbm-dev gawk fio dbench uuid-runtime
