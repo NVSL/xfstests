@@ -50,7 +50,7 @@ while l < max_l:
     
     l += 1
 
-print """<testsuite tests="{count}">
+print """<testsuite name="xfstests" tests="{count}">
 {tests}
 </testsuite>
 """.format(count=len(out), tests='\n'.join(out))
