@@ -40,8 +40,10 @@
 
 #ifndef Q_GETNEXTQUOTA
 #define Q_GETNEXTQUOTA 0x800009        /* get disk limits and usage >= ID */
+#endif
 
-struct nextdqblk
+/* glibc 2.24 defines Q_GETNEXTQUOTA but not struct nextdqblk. */
+struct test_nextdqblk
   {
     u_int64_t dqb_bhardlimit;	/* absolute limit on disk quota blocks alloc */
     u_int64_t dqb_bsoftlimit;	/* preferred limit on disk quota blocks */
@@ -54,7 +56,6 @@ struct nextdqblk
     u_int32_t dqb_valid;	/* bitmask of QIF_* constants */
     u_int32_t dqb_id;		/* id for this quota info*/
   };
-#endif
 
 #ifndef Q_XGETNEXTQUOTA
 #define Q_XGETNEXTQUOTA XQM_CMD(9)
@@ -72,10 +73,11 @@ int main(int argc, char *argv[])
 	int cmd;
 	int type = -1, typeflag = 0;
 	int verbose = 0;
+	int retval = 0;
 	uint id = 0, idflag = 0;
 	char *device = NULL;
 	char *tmp;
-	struct nextdqblk dqb;
+	struct test_nextdqblk dqb;
 	struct fs_disk_quota xqb;
 
 	while ((c = getopt(argc,argv,"ugpi:d:v")) != EOF) {
@@ -131,7 +133,7 @@ int main(int argc, char *argv[])
 	if (verbose)
 		printf("asking for quota type %d for id %u on %s\n", type, id, device);
 
-	memset(&dqb, 0, sizeof(struct nextdqblk));
+	memset(&dqb, 0, sizeof(struct test_nextdqblk));
 	memset(&xqb, 0, sizeof(struct fs_disk_quota));
 
 	if (verbose)
@@ -139,30 +141,32 @@ int main(int argc, char *argv[])
 	cmd = QCMD(Q_GETNEXTQUOTA, type);
 	if (quotactl(cmd, device, id, (void *)&dqb) < 0) {
 		perror("Q_GETNEXTQUOTA");
-		return 1;
+		retval = 1;
+	} else {
+		/*
+		 * We only print id and inode limits because
+		 * block count varies depending on fs block size, etc;
+		 * this is just a sanity test that we can retrieve the quota,
+		 * and inode limits have the same units across both calls.
+		 */
+		printf("id        %u\n", dqb.dqb_id);
+		printf("ihard     %llu\n",
+				  (unsigned long long)dqb.dqb_ihardlimit);
+		printf("isoft     %llu\n",
+				  (unsigned long long)dqb.dqb_isoftlimit);
 	}
-
-	/*
-	 * We only print id and inode limits because
-	 * block count varies depending on fs block size, etc;
-	 * this is just a sanity test that we can retrieve the quota,
-	 * and inode limits have the same units across both calls.
-	 */
-	printf("id        %u\n", dqb.dqb_id);
-	printf("ihard     %llu\n", (unsigned long long)dqb.dqb_ihardlimit);
-	printf("isoft     %llu\n", (unsigned long long)dqb.dqb_isoftlimit);
 
 	if (verbose)
 		printf("====Q_XGETNEXTQUOTA====\n");
 	cmd = QCMD(Q_XGETNEXTQUOTA, USRQUOTA);
 	if (quotactl(cmd, device, id, (void *)&xqb) < 0) {
 		perror("Q_XGETNEXTQUOTA");
-		return 1;
+		retval = 1;
+	} else {
+		printf("id        %u\n", xqb.d_id);
+		printf("ihard     %llu\n", xqb.d_ino_hardlimit);
+		printf("isoft     %llu\n", xqb.d_ino_softlimit);
 	}
 
-	printf("id        %u\n", xqb.d_id);
-	printf("ihard     %llu\n", xqb.d_ino_hardlimit);
-	printf("isoft     %llu\n", xqb.d_ino_softlimit);
-
-	return 0;
+	return retval;
 }

@@ -28,6 +28,7 @@ try=""
 n_bad=0
 sum_bad=0
 bad=""
+n_notrun=0
 notrun=""
 interrupt=true
 diff="diff -u"
@@ -36,7 +37,9 @@ have_test_arg=false
 randomize=false
 export here=`pwd`
 xfile=""
-
+brief_test_summary=false
+err_msg=""
+do_report=false
 DUMP_OUTPUT=false
 
 # start the initialisation work now
@@ -51,7 +54,7 @@ export DIFF_LENGTH=${DIFF_LENGTH:=10}
 # by default don't output timestamps
 timestamp=${TIMESTAMP:=false}
 
-rm -f $tmp.list $tmp.tmp $tmp.grep $here/$iam.out $tmp.xlist
+rm -f $tmp.list $tmp.tmp $tmp.grep $here/$iam.out $tmp.xlist $tmp.report.*
 
 SRC_GROUPS="generic shared"
 export SRC_DIR="tests"
@@ -62,15 +65,20 @@ usage()
 
 check options
     -nfs                test NFS
+    -glusterfs                test GlusterFS
     -cifs               test CIFS
     -overlay		test overlay
+    -pvfs2          test PVFS2
     -tmpfs              test TMPFS
+    -ubifs              test ubifs
     -l			line mode diff
     -udiff		show unified diff (default)
     -n			show me, do not run tests
     -T			output timestamps
     -r			randomize test order
     -d			dump test output to stdout
+    -b			brief test summary
+    -R fmt[,fmt]	generate report in formats specified. Supported format: [xunit]
     --large-fs		optimise scratch device for large filesystems
     -s section		run only specified section from config file
     -S section		exclude the specified section from the config file
@@ -78,26 +86,72 @@ check options
 testlist options
     -g group[,group...]	include tests from these groups
     -x group[,group...]	exclude tests from these groups
-    -X file		exclude individual tests
+    -X exclude_file	exclude individual tests
     -E external_file	exclude individual tests
     [testlist]		include tests matching names in testlist
+
+testlist argument is a list of tests in the form of <test dir>/<test name>.
+
+<test dir> is a directory under tests that contains a group file,
+with a list of the names of the tests in that directory.
+
+<test name> may be either a specific test file name (e.g. xfs/001) or
+a test file name match pattern (e.g. xfs/*).
+
+group argument is either a name of a tests group to collect from all
+the test dirs (e.g. quick) or a name of a tests group to collect from
+a specific tests dir in the form of <test dir>/<group name> (e.g. xfs/quick).
+
+exclude_file argument refers to a name of a file inside each test directory.
+for every test dir where this file is found, the listed test names are
+excluded from the list of tests to run from that test dir.
+
+external_file argument is a path to a single file containing a list of tests
+to exclude in the form of <test dir>/<test name>.
+
+examples:
+ check xfs/001
+ check -g quick
+ check -g xfs/quick
+ check -x stress xfs/*
+ check -X .exclude -g auto
+ check -E ~/.xfstests.exclude
 '
 	    exit 0
 }
 
+get_sub_group_list()
+{
+	local d=$1
+	local grp=$2
+
+	test -s "$SRC_DIR/$d/group" || return 1
+
+	local grpl=$(sed -n < $SRC_DIR/$d/group \
+		-e 's/#.*//' \
+		-e 's/$/ /' \
+		-e "s;^\($VALID_TEST_NAME\).* $grp .*;$SRC_DIR/$d/\1;p")
+	echo $grpl
+}
+
 get_group_list()
 {
-	grp=$1
+	local grp=$1
+	local grpl=""
+	local sub=$(dirname $grp)
+
+	if [ -n "$sub" -a "$sub" != "." -a -d "$SRC_DIR/$sub" ]; then
+		# group is given as <subdir>/<group> (e.g. xfs/quick)
+		grp=$(basename $grp)
+		get_sub_group_list $sub $grp
+		return
+	fi
 
 	for d in $SRC_GROUPS $FSTYP; do
 		if ! test -d "$SRC_DIR/$d" ; then
 			continue
 		fi
-		l=$(sed -n < $SRC_DIR/$d/group \
-			-e 's/#.*//' \
-			-e 's/$/ /' \
-			-e "s;^\($VALID_TEST_NAME\).* $grp .*;$SRC_DIR/$d/\1;p")
-		grpl="$grpl $l"
+		grpl="$grpl $(get_sub_group_list $d $grp)"
 	done
 	echo $grpl
 }
@@ -209,9 +263,12 @@ while [ $# -gt 0 ]; do
 	-\? | -h | --help) usage ;;
 
 	-nfs)		FSTYP=nfs ;;
+	-glusterfs)	FSTYP=glusterfs ;;
 	-cifs)		FSTYP=cifs ;;
-	-overlay)	FSTYP=overlay ;;
+	-overlay)	FSTYP=overlay; export OVERLAY=true ;;
+	-pvfs2)		FSTYP=pvfs2 ;;
 	-tmpfs)		FSTYP=tmpfs ;;
+	-ubifs)		FSTYP=ubifs ;;
 
 	-g)	group=$2 ; shift ;
 		GROUP_LIST="$GROUP_LIST ${group//,/ }"
@@ -224,14 +281,14 @@ while [ $# -gt 0 ]; do
 	-X)	xfile=$2; shift ;
 		for d in $SRC_GROUPS $FSTYP; do
 			[ -f $SRC_DIR/$d/$xfile ] || continue
-			for f in `cat $SRC_DIR/$d/$xfile`; do
+			for f in `sed "s/#.*$//" $SRC_DIR/$d/$xfile`; do
 				echo $d/$f >> $tmp.xlist
 			done
 		done
 		;;
 	-E)	xfile=$2; shift ;
 		if [ -f $xfile ]; then
-			cat "$xfile" >> $tmp.xlist
+			sed "s/#.*$//" "$xfile" >> $tmp.xlist
 	        fi
 		;;
 	-s)	RUN_SECTION="$RUN_SECTION $2"; shift ;;
@@ -244,7 +301,11 @@ while [ $# -gt 0 ]; do
 
 	-T)	timestamp=true ;;
 	-d)	DUMP_OUTPUT=true ;;
-
+	-b)	brief_test_summary=true;;
+	-R)	report_fmt=$2 ; shift ;
+		REPORT_LIST="$REPORT_LIST ${report_fmt//,/ }"
+		do_report=true
+		;;
 	--large-fs) export LARGE_SCRATCH_DEV=yes ;;
 	--extra-space=*) export SCRATCH_DEV_EMPTY_SPACE=${r#*=} ;;
 
@@ -278,18 +339,23 @@ if $have_test_arg; then
 			status=1
 			exit $status
 			;;
-		*)	test_dir=`dirname $1`
-			test_dir=${test_dir#$SRC_DIR/*}
-			test_name=`basename $1`
-			group_file=$SRC_DIR/$test_dir/group
+		*)	# Expand test pattern (e.g. xfs/???, *fs/001)
+			list=$(cd $SRC_DIR; echo $1)
+			for t in $list; do
+				test_dir=`dirname $t`
+				test_dir=${test_dir#$SRC_DIR/*}
+				test_name=`basename $t`
+				group_file=$SRC_DIR/$test_dir/group
 
-			if egrep "^$test_name" $group_file >/dev/null ; then
-				# in group file ... OK
-				echo $SRC_DIR/$test_dir/$test_name >>$tmp.arglist
-			else
-				# oops
-				echo "$1 - unknown test, ignored"
-			fi
+				if egrep -q "^$test_name" $group_file; then
+					# in group file ... OK
+					echo $SRC_DIR/$test_dir/$test_name \
+						>>$tmp.arglist
+				else
+					# oops
+					echo "$t - unknown test, ignored"
+				fi
+			done
 			;;
 		esac
 
@@ -314,76 +380,84 @@ _wipe_counters()
 {
 	n_try="0"
 	n_bad="0"
+	n_notrun="0"
 	unset try notrun bad
 }
 
 _wrapup()
 {
-    seq="check"
-    check="$RESULT_BASE/check"
+	seq="check"
+	check="$RESULT_BASE/check"
 
-    if $showme
-    then
-	:
-    elif $needwrap
-    then
-	if [ -f $check.time -a -f $tmp.time ]
-	then
-	    cat $check.time $tmp.time \
-	    | $AWK_PROG '
-	{ t[$1] = $2 }
-END	{ if (NR > 0) {
-	    for (i in t) print i " " t[i]
-	  }
-	}' \
-	    | sort -n >$tmp.out
-	    mv $tmp.out $check.time
+	if $showme; then
+		if $needwrap; then
+			if $do_report; then
+				_make_section_report
+			fi
+			needwrap=false
+		fi
+	elif $needwrap; then
+		if [ -f $check.time -a -f $tmp.time ]; then
+			cat $check.time $tmp.time  \
+				| $AWK_PROG '
+				{ t[$1] = $2 }
+				END {
+					if (NR > 0) {
+						for (i in t) print i " " t[i]
+					}
+				}' \
+				| sort -n >$tmp.out
+			mv $tmp.out $check.time
+		fi
+
+		echo "" >>$check.log
+		date >>$check.log
+
+		echo "SECTION       -- $section" >>$tmp.summary
+		echo "=========================" >>$tmp.summary
+		if [ ! -z "$n_try" -a $n_try != 0 ]; then
+			if [ $brief_test_summary == "false" ]; then
+				echo "Ran:$try"
+				echo "Ran:$try" >>$tmp.summary
+			fi
+			echo "Ran:$try" >>$check.log
+		fi
+
+		$interrupt && echo "Interrupted!" | tee -a $check.log
+
+		if [ ! -z "$notrun" ]; then
+			if [ $brief_test_summary == "false" ]; then
+				echo "Not run:$notrun"
+				echo "Not run:$notrun" >>$tmp.summary
+			fi
+			echo "Not run:$notrun" >>$check.log
+		fi
+
+		if [ ! -z "$n_bad" -a $n_bad != 0 ]; then
+			echo "Failures:$bad"
+			echo "Failed $n_bad of $n_try tests"
+			echo "Failures:$bad" >>$check.log
+			echo "Failed $n_bad of $n_try tests" >>$check.log
+			echo "Failures:$bad" >>$tmp.summary
+			echo "Failed $n_bad of $n_try tests" >>$tmp.summary
+		else
+			echo "Passed all $n_try tests"
+			echo "Passed all $n_try tests" >>$check.log
+			echo "Passed all $n_try tests" >>$tmp.summary
+		fi
+		echo "" >>$tmp.summary
+		if $do_report; then
+			_make_section_report
+		fi
+		needwrap=false
 	fi
 
-	echo "" >>$check.log
-	date >>$check.log
-
-	echo "SECTION       -- $section" >>$tmp.summary
-	echo "=========================" >>$tmp.summary
-        if [ ! -z "$n_try" -a $n_try != 0 ]
-	then
-	    echo "Ran:$try"
-	    echo "Ran:$try" >>$check.log
-	    echo "Ran:$try" >>$tmp.summary
+	sum_bad=`expr $sum_bad + $n_bad`
+	_wipe_counters
+	rm -f /tmp/*.rawout /tmp/*.out /tmp/*.err /tmp/*.time
+	if ! $OPTIONS_HAVE_SECTIONS; then
+		rm -f $tmp.*
 	fi
-
-	$interrupt && echo "Interrupted!" >>$check.log
-
-	if [ ! -z "$notrun" ]
-	then
-	    echo "Not run:$notrun"
-	    echo "Not run:$notrun" >>$check.log
-	    echo "Not run:$notrun" >>$tmp.summary
-	fi
-
-        if [ ! -z "$n_bad" -a $n_bad != 0 ]
-	then
-	    echo "Failures:$bad"
-	    echo "Failed $n_bad of $n_try tests"
-	    echo "Failures:$bad" >>$check.log
-	    echo "Failed $n_bad of $n_try tests" >>$check.log
-	    echo "Failures:$bad" >>$tmp.summary
-	    echo "Failed $n_bad of $n_try tests" >>$tmp.summary
-	else
-	    echo "Passed all $n_try tests"
-	    echo "Passed all $n_try tests" >>$check.log
-	    echo "Passed all $n_try tests" >>$tmp.summary
-	fi
-	echo "" >>$tmp.summary
-	needwrap=false
-    fi
-
-    sum_bad=`expr $sum_bad + $n_bad`
-    _wipe_counters
-    rm -f /tmp/*.rawout /tmp/*.out /tmp/*.err /tmp/*.time
-    if ! $OPTIONS_HAVE_SECTIONS; then
-        rm -f $tmp.*
-    fi
 }
 
 _summary()
@@ -403,11 +477,11 @@ _check_filesystems()
 {
 	if [ -f ${RESULT_DIR}/require_test ]; then
 		_check_test_fs || err=true
-		rm -f ${RESULT_DIR}/require_test
+		rm -f ${RESULT_DIR}/require_test*
 	fi
 	if [ -f ${RESULT_DIR}/require_scratch ]; then
 		_check_scratch_fs || err=true
-		rm -f ${RESULT_DIR}/require_scratch
+		rm -f ${RESULT_DIR}/require_scratch*
 	fi
 }
 
@@ -421,7 +495,7 @@ fi
 
 for section in $HOST_OPTIONS_SECTIONS; do
 	OLD_FSTYP=$FSTYP
-	OLD_MOUNT_OPTIONS=$MOUNT_OPTIONS
+	OLD_TEST_FS_MOUNT_OPTS=$TEST_FS_MOUNT_OPTS
 	get_next_config $section
 
 	# Do we need to run only some sections ?
@@ -463,6 +537,7 @@ for section in $HOST_OPTIONS_SECTIONS; do
 		echo "SECTION       -- $section"
 	fi
 
+	sect_start=`_wallclock`
 	if $RECREATE_TEST_DEV || [ "$OLD_FSTYP" != "$FSTYP" ]; then
 		echo "RECREATING    -- $FSTYP on $TEST_DEV"
 		_test_unmount 2> /dev/null
@@ -474,18 +549,18 @@ for section in $HOST_OPTIONS_SECTIONS; do
 			status=1
 			exit
 		fi
-		out=`_mount_or_remount_rw "$MOUNT_OPTIONS" $TEST_DEV $TEST_DIR`
-		if [ $? -ne 1 ]; then
-			echo $out
+		if ! _test_mount
+		then
+			echo "check: failed to mount $TEST_DEV on $TEST_DIR"
 			status=1
 			exit
 		fi
 		_prepare_test_list
-	elif [ "$OLD_MOUNT_OPTIONS" != "$MOUNT_OPTIONS" ]; then
+	elif [ "$OLD_TEST_FS_MOUNT_OPTS" != "$TEST_FS_MOUNT_OPTS" ]; then
 		_test_unmount 2> /dev/null
-		out=`_mount_or_remount_rw "$MOUNT_OPTIONS" $TEST_DEV $TEST_DIR`
-		if [ $? -ne 1 ]; then
-			echo $out
+		if ! _test_mount
+		then
+			echo "check: failed to mount $TEST_DEV on $TEST_DIR"
 			status=1
 			exit
 		fi
@@ -543,6 +618,7 @@ for section in $HOST_OPTIONS_SECTIONS; do
 	for seq in $list
 	do
 	    err=false
+	    err_msg=""
 	    if [ ! -f $seq ]; then
 	        # Try to get full name in case the user supplied only seq id
 	        # and the test has a name. A bit of hassle to find really
@@ -566,24 +642,31 @@ for section in $HOST_OPTIONS_SECTIONS; do
 	    group=`dirname $seq`
 	    if $OPTIONS_HAVE_SECTIONS; then
 		export RESULT_DIR=`echo $group | sed -e "s;$SRC_DIR;${RESULT_BASE}/$section;"`
-		seqres="$RESULT_BASE/$section/$seqnum"
+		REPORT_DIR="$RESULT_BASE/$section"
 	    else
 		export RESULT_DIR=`echo $group | sed -e "s;$SRC_DIR;$RESULT_BASE;"`
-		seqres="$RESULT_BASE/$seqnum"
+		REPORT_DIR="$RESULT_BASE"
 	    fi
+	    seqres="$REPORT_DIR/$seqnum"
 
 	    mkdir -p $RESULT_DIR
 
 	    echo -n "$seqnum"
 
-		if $showme; then
-			echo
-			continue
+	    if $showme; then
+		echo
+		start=0
+		stop=0
+		n_notrun=`expr $n_notrun + 1`
+		if $do_report; then
+			_make_testcase_report "list"
 		fi
-
-		if [ ! -f $seq ]; then
-			echo " - no such test?"
-		else
+		continue
+	    fi
+	    tc_status="pass"
+	    if [ ! -f $seq ]; then
+		echo " - no such test?"
+	    else
 		# really going to try and run this one
 		#
 		rm -f $seqres.out.bad
@@ -631,7 +714,8 @@ for section in $HOST_OPTIONS_SECTIONS; do
 
 		if [ -f core ]
 		then
-		    echo -n " [dumped core]"
+		    err_msg="[dumped core]"
+		    echo -n " $err_msg"
 		    mv core $RESULT_BASE/$seqnum.core
 		    err=true
 		fi
@@ -642,15 +726,18 @@ for section in $HOST_OPTIONS_SECTIONS; do
 		    $timestamp && echo " [not run]" && echo -n "	$seqnum -- "
 		    cat $seqres.notrun
 		    notrun="$notrun $seqnum"
+		    n_notrun=`expr $n_notrun + 1`
+		    tc_status="notrun"
 		else
 		    if [ $sts -ne 0 ]
 		    then
-			echo -n " [failed, exit status $sts]"
+			err_msg="[failed, exit status $sts]"
+			echo -n " $err_msg"
 			err=true
 		    fi
 		    if [ ! -f $seq.out ]
 		    then
-			echo " - no qualified output"
+			_dump_err "no qualified output"
 			err=true
 		    else
 
@@ -680,6 +767,7 @@ for section in $HOST_OPTIONS_SECTIONS; do
 						" to see the entire diff)"
 				fi; } | \
 				sed -e 's/^\(.\)/    \1/'
+			    err_msg="output mismatch (see $diff $seq.out $seqres.out.bad)"
 			    err=true
 			fi
 		    fi
@@ -698,11 +786,17 @@ for section in $HOST_OPTIONS_SECTIONS; do
 		bad="$bad $seqnum"
 		n_bad=`expr $n_bad + 1`
 		quick=false
+		tc_status="fail"
 	    fi
-
+	    if $do_report; then
+		_make_testcase_report "$tc_status"
+	    fi
 	    seq="after_$seqnum"
 	done
+	sect_stop=`_wallclock`
+	interrupt=false
 	_wrapup
+	interrupt=true
 	echo
 
 	_test_unmount 2> /dev/null

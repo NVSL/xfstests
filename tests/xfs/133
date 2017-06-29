@@ -1,10 +1,17 @@
 #! /bin/bash
-# FS QA Test 133
+# FSQA Test No. 133
 #
-# Test xfs_quota when project names beginning with digits.
+# Since loff_t is a signed type, it is invalid for a filesystem to load
+# an inode with i_size = -1ULL.  Unfortunately, nobody checks this,
+# which means that we can trivially DoS the VFS by creating such a file
+# and appending to it.  This causes an integer overflow in the routines
+# underlying writeback, which results in the kernel locking up.
+#
+# So, create this malformed inode and try a buffered append to make
+# sure we catch this situation.
 #
 #-----------------------------------------------------------------------
-# Copyright (c) 2015 Red Hat Inc.  All Rights Reserved.
+# Copyright (c) 2017 Oracle, Inc.  All Rights Reserved.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -19,76 +26,59 @@
 # along with this program; if not, write the Free Software Foundation,
 # Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #-----------------------------------------------------------------------
-#
 
 seq=`basename $0`
 seqres=$RESULT_DIR/$seq
 echo "QA output created by $seq"
 
-qa_user=""
-here=`pwd`
+PIDS=""
 tmp=/tmp/$$
 status=1	# failure is the default!
 trap "_cleanup; exit \$status" 0 1 2 3 15
 
 _cleanup()
 {
-	cd /
 	rm -f $tmp.*
 }
 
 # get standard environment, filters and checks
 . ./common/rc
 . ./common/filter
-. ./common/quota
-
-# remove previous $seqres.full before test
-rm -f $seqres.full
 
 # real QA test starts here
-_supported_fs xfs
 _supported_os Linux
-_require_scratch
-_require_xfs_quota
+_supported_fs xfs
+_require_scratch_nocheck
+_disable_dmesg_check
 
-_scratch_mkfs_xfs >/dev/null 2>&1
+rm -f $seqres.full
 
-do_project_test()
-{
-	local qa_project=123456-project
-	local dir=$SCRATCH_MNT/project
+echo "Format and mount"
+_scratch_mkfs  >> $seqres.full 2>&1
+_scratch_mount
 
-	mkdir $dir 2>/dev/null
+testdir=$SCRATCH_MNT
+echo m > $testdir/a
+inum=$(stat -c "%i" $testdir/a)
 
-	#project quota files
-	cat >$tmp.projects <<EOF
-10:$dir
-EOF
+echo "Corrupt filesystem"
+_scratch_unmount
 
-	cat >$tmp.projid <<EOF
-$qa_project:10
-EOF
+# run two xfs_db commands to set core.size regardless of the special argument "--"
+# is needed or not.
+_scratch_xfs_db -x -c "inode ${inum}" -c 'write core.size -- -1' >> $seqres.full 2>&1
+_scratch_xfs_db -x -c "inode ${inum}" -c 'write core.size -1' >> $seqres.full 2>&1
 
-	$XFS_QUOTA_PROG -D $tmp.projects -P $tmp.projid -x \
-		-c "project -s $qa_project" $SCRATCH_MNT > /dev/null
+# check core.size and _notrun if it's not set correctly
+i_size=`_scratch_xfs_db -c "inode ${inum}" -c "print core.size" | $AWK_PROG '{print $3}'`
+if [ $i_size -ne -1 ]; then
+	_notrun "Could not set i_size to -1 successfully, skip test."
+fi
 
-	$XFS_QUOTA_PROG -D $tmp.projects -P $tmp.projid -x \
-		-c "limit -p bsoft=100m bhard=200m $qa_project" $SCRATCH_MNT
-
-	echo "=== quota command output ==="
-	$XFS_QUOTA_PROG -D $tmp.projects -P $tmp.projid \
-		-c "quota -p -v -b $qa_project" $SCRATCH_MNT | _filter_quota
-
-	echo "=== report command output ==="
-	$XFS_QUOTA_PROG -D $tmp.projects -P $tmp.projid -x \
-		-c "report -p -N -b" $SCRATCH_MNT | _filter_project_quota
-}
-
-# Test project
-_qmount_option "uquota,pquota"
-_qmount
-_require_prjquota $SCRATCH_DEV
-do_project_test
+echo "Remount, try to append"
+_scratch_mount
+dd if=/dev/zero of=$testdir/a bs=512 count=1 oflag=append conv=notrunc >> $seqres.full 2>&1 || echo "Write did not succeed (ok)."
+sync
 
 # success, all done
 status=0

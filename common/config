@@ -35,6 +35,7 @@
 # RMT_TAPE_DEV -    the remote tape device for the xfsdump tests
 # RMT_IRIXTAPE_DEV- the IRIX remote tape device for the xfsdump tests
 # RMT_TAPE_USER -   remote user for tape device
+# SELINUX_MOUNT_OPTIONS - Options to use when SELinux is enabled.
 #
 # - These can be added to $HOST_CONFIG_DIR (witch default to ./config)
 #   below or a separate local configuration file can be used (using
@@ -77,9 +78,13 @@ export XFS_MKFS_OPTIONS=${XFS_MKFS_OPTIONS:=-bsize=4096}
 export TIME_FACTOR=${TIME_FACTOR:=1}
 export LOAD_FACTOR=${LOAD_FACTOR:=1}
 export DEBUGFS_MNT=${DEBUGFS_MNT:="/sys/kernel/debug"}
-export OVERLAY_UPPER_DIR=${OVERLAY_UPPER_DIR:="upper"}
-export OVERLAY_LOWER_DIR=${OVERLAY_LOWER_DIR:="lower"}
-export OVERLAY_WORK_DIR=${OVERLAY_WORK_DIR:="work"}
+
+# some constants for overlayfs setup
+export OVL_UPPER="ovl-upper"
+export OVL_LOWER="ovl-lower"
+export OVL_WORK="ovl-work"
+# overlay mount point parent must be the base fs root
+export OVL_MNT="ovl-mnt"
 
 export PWD=`pwd`
 #export DEBUG=${DEBUG:=...} # arbitrary CFLAGS really.
@@ -88,26 +93,10 @@ export LOCAL_CONFIGURE_OPTIONS=${LOCAL_CONFIGURE_OPTIONS:=--enable-readline=yes}
 
 export RECREATE_TEST_DEV=false
 
-# $1 = prog to look for, $2* = default pathnames if not found in $PATH
+# $1 = prog to look for
 set_prog_path()
 {
-    p=`which $1 2> /dev/null`
-    if [ -n "$p" -a -x "$p" ]; then
-        echo $p
-        return 0
-    fi
-    p=$1
-
-    shift
-    for f; do
-        if [ -x $f ]; then
-            echo $f
-            return 0
-        fi
-    done
-
-    echo ""
-    return 1
+	type -P $1
 }
 
 # Handle mkfs.btrfs which does (or does not) require -f to overwrite
@@ -158,11 +147,14 @@ export DF_PROG="`set_prog_path df`"
 [ "$DF_PROG" = "" ] && _fatal "df not found"
 [ "$HOSTOS" = "Linux" ] && export DF_PROG="$DF_PROG -T -P"
 
+export XFS_IO_PROG="`set_prog_path xfs_io`"
+[ "$XFS_IO_PROG" = "" ] && _fatal "xfs_io not found"
+
 export XFS_LOGPRINT_PROG="`set_prog_path xfs_logprint`"
 export XFS_REPAIR_PROG="`set_prog_path xfs_repair`"
 export XFS_DB_PROG="`set_prog_path xfs_db`"
 export XFS_GROWFS_PROG=`set_prog_path xfs_growfs`
-export XFS_IO_PROG="`set_prog_path xfs_io`"
+export XFS_SCRUB_PROG="`set_prog_path xfs_scrub`"
 export XFS_PARALLEL_REPAIR_PROG="`set_prog_path xfs_prepair`"
 export XFS_PARALLEL_REPAIR64_PROG="`set_prog_path xfs_prepair64`"
 export __XFSDUMP_PROG="`set_prog_path xfsdump`"
@@ -199,6 +191,15 @@ export DEBUGFS_PROG="`set_prog_path debugfs`"
 export UUIDGEN_PROG="`set_prog_path uuidgen`"
 export GETRICHACL_PROG="`set_prog_path getrichacl`"
 export SETRICHACL_PROG="`set_prog_path setrichacl`"
+export KEYCTL_PROG="`set_prog_path keyctl`"
+export XZ_PROG="`set_prog_path xz`"
+export FLOCK_PROG="`set_prog_path flock`"
+export LDD_PROG="`set_prog_path ldd`"
+export TIMEOUT_PROG="`set_prog_path timeout`"
+export MAN_PROG="`set_prog_path man`"
+export NFS4_SETFACL_PROG="`set_prog_path nfs4_setfacl`"
+export NFS4_GETFACL_PROG="`set_prog_path nfs4_getfacl`"
+export UBIUPDATEVOL_PROG="`set_prog_path ubiupdatevol`"
 
 # use 'udevadm settle' or 'udevsettle' to wait for lv to be settled.
 # newer systems have udevadm command but older systems like RHEL5 don't.
@@ -218,21 +219,6 @@ if [ "$UDEV_SETTLE_PROG" == "" ]; then
 fi
 export UDEV_SETTLE_PROG
 
-# Generate a comparable xfsprogs version number in the form of
-# major * 10000 + minor * 100 + release
-#
-# $ xfs_db -V
-# xfs_db version 2.9.7
-#
-# so, 2.9.7 = 20907
-_version=`$XFS_DB_PROG -V | $AWK_PROG '
-	/version/ {
-		if (split($3,ver,".") == 3)
-			print (ver[1] * 10000) + (ver[2] * 100) + ver[3];
-	}'`
-[ -z "$_version" ] && _fatal "xfsprogs version cannot be found"
-export XFSPROGS_VERSION="$_version"
-
 case "$HOSTOS" in
     IRIX*)
         export MKFS_XFS_PROG="`set_prog_path mkfs_xfs`"
@@ -250,19 +236,28 @@ case "$HOSTOS" in
         export DUMP_F2FS_PROG="`set_prog_path dump.f2fs`"
         export BTRFS_UTIL_PROG="`set_prog_path btrfs`"
         export BTRFS_SHOW_SUPER_PROG="`set_prog_path btrfs-show-super`"
+	export BTRFS_CONVERT_PROG="`set_prog_path btrfs-convert`"
         export XFS_FSR_PROG="`set_prog_path xfs_fsr`"
         export MKFS_NFS_PROG="false"
         export MKFS_CIFS_PROG="false"
         export MKFS_OVERLAY_PROG="false"
         export MKFS_REISER4_PROG="`set_prog_path mkfs.reiser4`"
+	export E2FSCK_PROG="`set_prog_path e2fsck`"
+	export TUNE2FS_PROG="`set_prog_path tune2fs`"
         ;;
 esac
 
 # SELinux adds extra xattrs which can mess up our expected output.
-# So, mount with a context, and they won't be created
-# # nfs_t is a "liberal" context so we can use it.
+# So, mount with a context, and they won't be created.
+#
+# Since the context= option only accepts contexts defined in the SELinux
+# policy, and different systems may have different policies with
+# different context names, use the context of an existing directory.
+# Assume that any valid context is fine, since xfstests should really
+# only be run from an "unconfined" process, or with SELinux in permissive
+# mode.  But if not, just specify your own SELINUX_MOUNT_OPTIONS.
 if [ -x /usr/sbin/selinuxenabled ] && /usr/sbin/selinuxenabled; then
-	SELINUX_MOUNT_OPTIONS="-o context=system_u:object_r:nfs_t:s0"
+	: ${SELINUX_MOUNT_OPTIONS:="-o context=$(stat -c %C /)"}
 	export SELINUX_MOUNT_OPTIONS
 fi
 
@@ -297,6 +292,12 @@ _mount_opts()
 	cifs)
 		export MOUNT_OPTIONS=$CIFS_MOUNT_OPTIONS
 		;;
+	ceph)
+		export MOUNT_OPTIONS=$CEPHFS_MOUNT_OPTIONS
+		;;
+	glusterfs)
+		export MOUNT_OPTIONS=$GLUSTERFS_MOUNT_OPTIONS
+		;;
 	overlay)
 		export MOUNT_OPTIONS=$OVERLAY_MOUNT_OPTIONS
 		;;
@@ -323,6 +324,9 @@ _mount_opts()
 		# We need to specify the size at mount, use 1G by default
 		export MOUNT_OPTIONS="-o size=1G $TMPFS_MOUNT_OPTIONS"
 		;;
+	ubifs)
+		export MOUNT_OPTIONS=$UBIFS_MOUNT_OPTIONS
+		;;
 	*)
 		;;
 	esac
@@ -333,6 +337,15 @@ _test_mount_opts()
 	case $FSTYP in
 	cifs)
 		export TEST_FS_MOUNT_OPTS=$CIFS_MOUNT_OPTIONS
+		;;
+	ceph)
+		export TEST_FS_MOUNT_OPTS=$CEPHFS_MOUNT_OPTIONS
+		;;
+	nfs)
+		export TEST_FS_MOUNT_OPTS=$NFS_MOUNT_OPTIONS
+		;;
+	glusterfs)
+		export TEST_FS_MOUNT_OPTS=$GLUSTERFS_MOUNT_OPTIONS
 		;;
 	*)
 		;;
@@ -355,6 +368,9 @@ _mkfs_opts()
 		;;
 	cifs)
 		export MKFS_OPTIONS=$CIFS_MKFS_OPTIONS
+		;;
+	ceph)
+		export MKFS_OPTIONS=$CEPHFS_MKFS_OPTIONS
 		;;
 	reiserfs)
 		export MKFS_OPTIONS="$REISERFS_MKFS_OPTIONS -q"
@@ -438,18 +454,119 @@ _check_device()
 		if [ "$dev_needed" == "required" ]; then
 			_fatal "common/config: $name is required but not defined!"
 		fi
-		return
+		return 0
 	fi
 
-	echo $dev | grep -qE ":|//" > /dev/null 2>&1
-	network_dev=$?
-	if [ "$FSTYP" == "overlay" ]; then
+	if [ -b "$dev" ] || ( echo $dev | grep -qE ":|//" ); then
+		# block device or a network url
+		return 0
+	fi
+
+	case "$FSTYP" in
+	overlay)
 		if [ ! -d "$dev" ]; then
 			_fatal "common/config: $name ($dev) is not a directory for overlay"
 		fi
-	elif [ ! -b "$dev" -a "$network_dev" != "0" ]; then
+		;;
+	ubifs)
+		if [ ! -c "$dev" ]; then
+			_fatal "common/config: $name ($dev) is not a character device"
+		fi
+		;;
+	*)
 		_fatal "common/config: $name ($dev) is not a block device or a network filesystem"
+	esac
+}
+
+# check and return a canonical mount point path
+_canonicalize_mountpoint()
+{
+	local name=$1
+	local dir=$2
+
+	if [ -d "$dir" ]; then
+		# this follows symlinks and removes all trailing "/"s
+		readlink -e "$dir"
+		return 0
 	fi
+
+	if [ "$FSTYP" != "overlay" ] || [[ "$name" == OVL_BASE_* ]]; then
+		_fatal "common/config: $name ($dir) is not a directory"
+	fi
+
+	# base fs may not be mounted yet, so just check that parent dir
+	# exists (where base fs will be mounted) because we are going to
+	# mkdir the overlay mount point dir anyway
+	local base=`basename $dir`
+	local parent=`dirname $dir`
+	parent=`_canonicalize_mountpoint OVL_BASE_$name "$parent"`
+
+	# prepend the overlay mount point to canonical parent path
+	echo "$parent/$base"
+}
+
+# On check -overlay, for the non multi section config case, this
+# function is called on every test, before init_rc().
+# When SCRATCH/TEST_* vars are defined in config file, config file
+# is sourced on every test and this function overrides the vars
+# every time.
+# When SCRATCH/TEST_* vars are defined in evironment and not
+# in config file, this function is called after vars have already
+# been overriden in the previous test.
+# In that case, TEST_DEV is a directory and not a blockdev and
+# the function will return without overriding the SCRATCH/TEST_* vars.
+_overlay_config_override()
+{
+	# There are 2 options for configuring overlayfs tests:
+	#
+	# 1. (legacy) SCRATCH/TEST_DEV point to existing directories
+	#    on an already mounted fs.  In this case, the new
+	#    OVL_BASE_SCRATCH/TEST_* vars are set to use the legacy
+	#    vars values (even though they may not be mount points).
+	#
+	[ ! -d "$TEST_DEV" ] || export OVL_BASE_TEST_DIR="$TEST_DEV"
+	[ ! -d "$SCRATCH_DEV" ] || export OVL_BASE_SCRATCH_MNT="$SCRATCH_DEV"
+
+	# 2. SCRATCH/TEST_DEV point to the base fs partitions.  In this case,
+	#    the new OVL_BASE_SCRATCH/TEST_DEV/MNT vars are set to the values
+	#    of the configured base fs and SCRATCH/TEST_DEV vars are set to the
+	#    overlayfs base and mount dirs inside base fs mount.
+	[ -b "$TEST_DEV" ] || return 0
+
+	# Config file may specify base fs type, but we obay -overlay flag
+	export OVL_BASE_FSTYP="$FSTYP"
+	export FSTYP=overlay
+
+	# Store original base fs vars
+	export OVL_BASE_TEST_DEV="$TEST_DEV"
+	export OVL_BASE_TEST_DIR="$TEST_DIR"
+	export OVL_BASE_MOUNT_OPTIONS="$MOUNT_OPTIONS"
+
+	# Set TEST vars to overlay base and mount dirs inside base fs
+	export TEST_DEV="$OVL_BASE_TEST_DIR"
+	export TEST_DIR="$OVL_BASE_TEST_DIR/$OVL_MNT"
+	export MOUNT_OPTIONS="$OVERLAY_MOUNT_OPTIONS"
+
+	[ -b "$SCRATCH_DEV" ] || return 0
+
+	# Store original base fs vars
+	export OVL_BASE_SCRATCH_DEV="$SCRATCH_DEV"
+	export OVL_BASE_SCRATCH_MNT="$SCRATCH_MNT"
+
+	# Set SCRATCH vars to overlay base and mount dirs inside base fs
+	export SCRATCH_DEV="$OVL_BASE_SCRATCH_MNT"
+	export SCRATCH_MNT="$OVL_BASE_SCRATCH_MNT/$OVL_MNT"
+}
+
+_overlay_config_restore()
+{
+	export OVERLAY=true
+	[ -z "$OVL_BASE_FSTYP" ] || export FSTYP=$OVL_BASE_FSTYP
+	[ -z "$OVL_BASE_TEST_DEV" ] || export TEST_DEV=$OVL_BASE_TEST_DEV
+	[ -z "$OVL_BASE_TEST_DIR" ] || export TEST_DIR=$OVL_BASE_TEST_DIR
+	[ -z "$OVL_BASE_SCRATCH_DEV" ] || export SCRATCH_DEV=$OVL_BASE_SCRATCH_DEV
+	[ -z "$OVL_BASE_SCRATCH_MNT" ] || export SCRATCH_MNT=$OVL_BASE_SCRATCH_MNT
+	[ -z "$OVL_BASE_MOUNT_OPTIONS" ] || export MOUNT_OPTIONS=$OVL_BASE_MOUNT_OPTIONS
 }
 
 # Parse config section options. This function will parse all the configuration
@@ -478,6 +595,15 @@ parse_config_section() {
 get_next_config() {
 	if [ ! -z "$CONFIG_INCLUDED" ] && ! $OPTIONS_HAVE_SECTIONS; then
 		return 0
+	fi
+
+	# We might have overriden FSTYP and TEST/SCRATCH vars with overlay values
+	# in the previous section, so restore them to original values stored in
+	# OVL_BASE_*.
+	# We need to do this *before* old FSTYP and MOUNT_OPTIONS are recorded
+	# and *before* SCRATCH_DEV and MOUNT_OPTIONS are unset
+	if [ "$FSTYP" == "overlay" ]; then
+		_overlay_config_restore
 	fi
 
 	local OLD_FSTYP=$FSTYP
@@ -540,10 +666,7 @@ get_next_config() {
 	fi
 
 	_check_device TEST_DEV required $TEST_DEV
-	if [ ! -d "$TEST_DIR" ]; then
-		echo "common/config: Error: \$TEST_DIR ($TEST_DIR) is not a directory"
-		exit 1
-	fi
+	export TEST_DIR=`_canonicalize_mountpoint TEST_DIR $TEST_DIR`
 
 	# a btrfs tester will set only SCRATCH_DEV_POOL, we will put first of its dev
 	# to SCRATCH_DEV and rest to SCRATCH_DEV_POOL to maintain the backward compatibility
@@ -558,16 +681,21 @@ get_next_config() {
 	fi
 
 	_check_device SCRATCH_DEV optional $SCRATCH_DEV
-	if [ ! -z "$SCRATCH_MNT" -a ! -d "$SCRATCH_MNT" ]; then
-		echo "common/config: Error: \$SCRATCH_MNT ($SCRATCH_MNT) is not a directory"
-		exit 1
-	fi
+	export SCRATCH_MNT=`_canonicalize_mountpoint SCRATCH_MNT $SCRATCH_MNT`
 
 	if [ -n "$USE_EXTERNAL" ]; then
 		_check_device TEST_RTDEV optional $TEST_RTDEV
 		_check_device TEST_LOGDEV optional $TEST_LOGDEV
 		_check_device SCRATCH_RTDEV optional $SCRATCH_RTDEV
 		_check_device SCRATCH_LOGDEV optional $SCRATCH_LOGDEV
+	fi
+
+	# Override FSTYP from config when running ./check -overlay
+	# and maybe override base fs TEST/SCRATCH_DEV with overlay base dirs.
+	# We need to do this *after* default mount options are set by base FSTYP
+	# and *after* SCRATCH_DEV is deduced from SCRATCH_DEV_POOL
+	if [ "$OVERLAY" == "true" -o "$FSTYP" == "overlay" ]; then
+		_overlay_config_override
 	fi
 }
 
@@ -588,12 +716,23 @@ if [ -z "$CONFIG_INCLUDED" ]; then
 	[ -z "$TEST_FS_MOUNT_OPTS" ] && _test_mount_opts
 	[ -z "$MKFS_OPTIONS" ] && _mkfs_opts
 	[ -z "$FSCK_OPTIONS" ] && _fsck_opts
-fi
+else
+	# We get here for the non multi section case, on every test that sources
+	# common/rc after re-sourcing the HOST_OPTIONS config file.
+	# Because of this re-sourcing, we need to re-canonicalize the configured
+	# mount points and re-override TEST/SCRATCH_DEV overlay vars.
 
-# canonicalize the mount points
-# this follows symlinks and removes all trailing "/"s
-export TEST_DIR=`readlink -e "$TEST_DIR"`
-export SCRATCH_MNT=`readlink -e "$SCRATCH_MNT"`
+	# canonicalize the mount points
+	# this follows symlinks and removes all trailing "/"s
+	export TEST_DIR=`_canonicalize_mountpoint TEST_DIR $TEST_DIR`
+	export SCRATCH_MNT=`_canonicalize_mountpoint SCRATCH_MNT $SCRATCH_MNT`
+
+	# Override FSTYP from config when running ./check -overlay
+	# and maybe override base fs TEST/SCRATCH_DEV with overlay base dirs
+	if [ "$OVERLAY" == "true" -o "$FSTYP" == "overlay" ]; then
+		_overlay_config_override
+	fi
+fi
 
 # make sure this script returns success
 /bin/true

@@ -49,8 +49,9 @@ rm -f $seqres.full
 _supported_fs btrfs
 _supported_os Linux
 _require_scratch
+_require_btrfs_qgroup_report
 
-_scratch_mkfs
+_scratch_mkfs >/dev/null
 # Use enospc_debug mount option to trigger restrict space info check
 _scratch_mount "-o enospc_debug"
 
@@ -62,8 +63,8 @@ _run_btrfs_util_prog qgroup limit 512K 0/5 $SCRATCH_MNT
 # so redirect stdout to seqres.full.
 # Also, EDQUOTA is expected, which can't be redirected due to the limitation
 # of _filter_xfs_io, so golden output will include EDQUOTA error message
-_pwrite_byte 0xcdcdcdcd 0 1M $SCRATCH_MNT/test_file | _filter_xfs_io \
-	>> $seqres.full
+_pwrite_byte 0xcdcdcdcd 0 1M $SCRATCH_MNT/test_file 2>&1 >> $seqres.full | \
+	_filter_xfs_io_error
 
 # Fstests will umount the fs, and at umount time, kernel warning will be
 # triggered

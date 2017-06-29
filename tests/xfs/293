@@ -46,10 +46,23 @@ _cleanup()
 _supported_fs xfs
 _supported_os IRIX Linux
 
+_require_command "$MAN_PROG" man
+
 echo "Silence is golden"
 
+MANPAGE=`$MAN_PROG --path xfs_io`
+
+case "$MANPAGE" in
+*.gz|*.z\|*.Z)	CAT=zcat;;
+*.bz2)		CAT=bzcat;;
+*.xz)		CAT=xzcat;;
+*)		CAT=cat;;
+esac
+
+_require_command `which $CAT` $CAT
+
 for COMMAND in `$XFS_IO_PROG -c help | awk '{print $1}' | grep -v "^Use"`; do
-  man xfs_io | col -b | grep -wq "   $COMMAND" || \
+  $CAT "$MANPAGE" | egrep -q "^\.B.*$COMMAND" || \
 	echo "$COMMAND not documented in the xfs_io manpage"
 done
 

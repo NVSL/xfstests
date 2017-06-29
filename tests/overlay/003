@@ -60,7 +60,7 @@ _require_scratch
 _scratch_mkfs
 
 # Create test files dirs in lower dir
-lowerdir=${SCRATCH_DEV}/${OVERLAY_LOWER_DIR}
+lowerdir=${OVL_BASE_SCRATCH_MNT}/${OVL_LOWER}
 mkdir -p $lowerdir
 
 touch ${lowerdir}/test_file
@@ -89,7 +89,8 @@ rm -rf ${SCRATCH_MNT}/*
 # nothing should be listed
 ls ${SCRATCH_MNT}/
 
-_scratch_unmount
+# unmount overlayfs but not base fs
+$UMOUNT_PROG $SCRATCH_MNT
 
 rm -rf $lowerdir
 echo "Silence is golden"

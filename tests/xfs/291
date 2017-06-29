@@ -69,11 +69,11 @@ done
 sync
 
 # Soak up any remaining freespace
-xfs_io -f -c "pwrite 0 16m" -c "fsync" $SCRATCH_MNT/space_file.large >> $seqres.full 2>&1
+$XFS_IO_PROG -f -c "pwrite 0 16m" -c "fsync" $SCRATCH_MNT/space_file.large >> $seqres.full 2>&1
 
 # Take a look at freespace for any post-mortem on the test
 _scratch_unmount
-xfs_db -r -c freesp $SCRATCH_DEV >> $seqres.full 2>&1
+_scratch_xfs_db -r -c freesp  >> $seqres.full 2>&1
 _scratch_mount
 
 # Step 2: Make a bunch of (hopefully fragmented) multiblock

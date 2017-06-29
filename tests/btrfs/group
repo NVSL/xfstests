@@ -12,7 +12,7 @@
 007 auto quick rw metadata send
 008 auto quick send
 009 auto quick subvol
-010 auto quick defrag
+010 auto
 011 auto replace
 012 auto convert
 013 auto quick balance
@@ -49,7 +49,7 @@
 044 auto quick send
 045 auto quick send
 046 auto quick send
-047 auto quick send
+047 auto quick snapshot attr
 048 auto quick
 049 auto quick
 050 auto quick send
@@ -110,7 +110,7 @@
 105 auto quick send
 106 auto quick clone compress
 107 auto quick prealloc
-108 auto quick send clone
+108 auto quick send clone punch
 109 auto quick send clone compress
 110 auto quick send
 111 auto quick send
@@ -133,3 +133,19 @@
 128 auto quick send
 129 auto quick send
 130 auto clone send
+131 auto quick
+132 auto enospc
+133 auto quick send
+134 auto quick send
+135 auto quick send
+136 auto convert
+137 auto quick send
+138 auto compress
+139 auto qgroup
+140 auto quick
+141 auto quick
+142 auto quick
+143 auto quick
+144 auto quick send
+145 auto quick send
+146 auto quick

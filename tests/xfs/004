@@ -74,7 +74,7 @@ eval `$DF_PROG $SCRATCH_MNT 2>&1 \
 echo "df gave: blocks=$blocks used=$used avail=$avail" >>$seqres.full
 echo "blocksize from mkfs is '$dbsize'" >>$seqres.full
 
-xfs_db -r -c "freesp -s" $SCRATCH_DEV >$tmp.xfs_db
+_scratch_xfs_db -r -c "freesp -s"  >$tmp.xfs_db
 echo "xfs_db for $SCRATCH_DEV" >>$seqres.full
 cat $tmp.xfs_db >>$seqres.full
 
@@ -83,29 +83,15 @@ eval `$XFS_IO_PROG -x -c resblks $SCRATCH_MNT 2>&1 \
 echo "resblks gave: resblks=$resblks" >>$seqres.full
 
 # check the 'blocks' field from freesp command is OK
-# since 2.6.18, df does not report the 4 blocks per AG that cannot
-# be allocated, hence we check for that exact mismatch.
-# since ~2.6.22, reserved blocks are used by default and df does
-# not report them, hence check for an exact mismatch.
 perl -ne '
-	BEGIN	{ $avail ='$avail' * 512;
+	BEGIN	{ $avail ='$avail' * 512 + ('$resblks' * '$dbsize');
 		  $answer="(no xfs_db free blocks line?)" }
 	/free blocks (\d+)$/	|| next;
 	$freesp = $1 * '$dbsize';
-	if ($freesp == $avail) {
+	if ($freesp >= $avail) {
 		$answer = "yes";
 	} else {
-		$avail = $avail + (('$agcount' + 1) * '$dbsize' * 4);
-		if ($freesp == $avail) {
-			$answer = "yes";
-		} else {
-			$avail = $avail + ('$resblks' * '$dbsize');
-			if ($freesp == $avail) {
-				$answer = "yes";
-			} else {
-				$answer = "no ($freesp != $avail)";
-			}
-		}
+		$answer = "no ($freesp < $avail)";
 	}
 	END	{ print "$answer\n" }
 	' <$tmp.xfs_db >$tmp.ans

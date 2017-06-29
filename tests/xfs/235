@@ -71,9 +71,9 @@ _scratch_xfs_repair -n >> $seqres.full 2>&1 || \
 
 echo "+ corrupt image"
 seq 0 $((agcount - 1)) | while read ag; do
-	$XFS_DB_PROG -x -c "agf ${ag}" -c "agf ${ag}" -c "addr rmaproot" \
+	_scratch_xfs_db -x -c "agf ${ag}" -c "agf ${ag}" -c "addr rmaproot" \
 		-c "stack" -c "blocktrash -x 4096 -y 4096 -z -n 8 -3" \
-		${SCRATCH_DEV} >> $seqres.full 2>&1
+		>> $seqres.full 2>&1
 done
 
 echo "+ mount image"
@@ -85,7 +85,8 @@ test -s ${SCRATCH_MNT}/file4 && _fail "should not be able to copy with busted rm
 umount ${SCRATCH_MNT}
 
 echo "+ repair fs"
-_scratch_xfs_repair >> $seqres.full 2>&1
+_disable_dmesg_check
+_repair_scratch_fs >> "$seqres.full" 2>&1
 _scratch_xfs_repair >> $seqres.full 2>&1
 
 echo "+ mount image (2)"

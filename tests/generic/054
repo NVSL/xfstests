@@ -50,6 +50,9 @@ _require_logstate
 echo "*** init FS"
 _scratch_unmount >/dev/null 2>&1
 
+_scratch_mkfs >/dev/null 2>&1
+_require_metadata_journaling $SCRATCH_DEV
+
 _get_log_configs > $tmp.seq.params
 
 # Do the work for various log params which
@@ -102,7 +105,7 @@ for s in sync nosync ; do
 
 	# check before on what FS should look like
 	_echofull "ls SCRATCH_MNT"
-	ls $SCRATCH_MNT
+	ls $SCRATCH_MNT | _filter_lostfound
 
 	_echofull "godown"
 	src/godown -v -f $SCRATCH_MNT >> $seqres.full
@@ -120,7 +123,7 @@ for s in sync nosync ; do
 
 	# check on what FS looks like after log recovery
 	_echofull "ls SCRATCH_MNT"
-	ls $SCRATCH_MNT
+	ls $SCRATCH_MNT | _filter_lostfound
 
 	_echofull "unmount"
 	_scratch_unmount

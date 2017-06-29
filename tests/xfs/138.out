@@ -1,13 +1,11 @@
 QA output created by 138
-== user test ==
-=== quota command output ===
-SCRATCH_DEV 0 102400 204800 00 [--------] SCRATCH_MNT
-=== report command output ===
-123456-fsgqa 0 102400 204800 00 [--------]
-
-== group test ==
-=== quota command output ===
-SCRATCH_DEV 0 102400 204800 00 [--------] SCRATCH_MNT
-=== report command output ===
-123456-fsgqa 0 102400 204800 00 [--------]
-
+Test with -c
+magicnum = XFS_MAGIC
+This is file A 
+This is file B 
+magicnum = XFS_MAGIC
+Test with interactive
+magicnum = XFS_MAGIC
+This is file A 
+This is file B 
+magicnum = XFS_MAGIC

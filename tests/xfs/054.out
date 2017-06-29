@@ -1,73 +1,13 @@
 QA output created by 054
-*** Default mount options
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (12345) Gid: (54321)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (34567) Gid: (76543)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (56789) Gid: (98765)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (12345) Gid: (54321)
-Device: <DEVICE> Inode: <INODE> Links: 1 
-
-*** User quota mount option
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (12345) Gid: (54321)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (34567) Gid: (76543)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (56789) Gid: (98765)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (12345) Gid: (54321)
-Device: <DEVICE> Inode: <INODE> Links: 1 
-
-*** Group quota mount option
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (12345) Gid: (54321)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (34567) Gid: (76543)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (56789) Gid: (98765)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (12345) Gid: (54321)
-Device: <DEVICE> Inode: <INODE> Links: 1 
-
-*** User and Group quota mount options
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (12345) Gid: (54321)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (34567) Gid: (76543)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (56789) Gid: (98765)
-Device: <DEVICE> Inode: <INODE> Links: 1 
- File: "<MOUNT>/testfile"
- Size: 0 Filetype: Regular File
- Mode: (0644/-rw-r--r--) Uid: (12345) Gid: (54321)
-Device: <DEVICE> Inode: <INODE> Links: 1 
-
+0
+LAST:32
+ROOT_INO
+ROOT_INO:32
+NEXT
+NEXT:32
+NEXT:32
+0
+0
+0
+0
+0
