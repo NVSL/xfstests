@@ -48,10 +48,10 @@
 048 other auto quick
 049 rw auto quick
 050 quota auto quick
-051 auto log metadata
+051 shutdown auto log metadata
 052 quota db auto quick
 053 attr acl repair quick auto
-054 quota auto quick
+054 auto quick
 055 dump ioctl remote tape
 056 dump ioctl auto quick
 057 acl auto
@@ -73,14 +73,14 @@
 073 copy auto
 074 quick auto prealloc rw
 075 auto quick mount
-076 auto enospc
+076 auto enospc punch
 077 auto quick copy
 078 growfs auto quick
-079 auto log quick
+079 shutdown auto log quick
 080 rw ioctl
 081 deprecated # log logprint quota
 082 deprecated # log logprint v2log
-083 dangerous_fuzzers
+083 dangerous_fuzzers punch
 084 ioctl rw auto
 085 fuzzers
 086 fuzzers
@@ -103,7 +103,7 @@
 103 metadata dir ioctl auto quick
 104 growfs ioctl prealloc auto stress
 105 fuzzers
-106 quota
+106 auto quick quota
 107 quota
 108 quota auto quick
 109 metadata auto
@@ -115,27 +115,27 @@
 115 parent attr
 116 quota auto quick
 117 fuzzers
-118 quota auto quick
+118 auto quick fsr dangerous
 119 log v2log auto freeze dangerous
 120 fuzzers
-121 log auto quick
+121 shutdown log auto quick
 122 other auto quick clone
 123 fuzzers
 124 fuzzers
 125 fuzzers
 126 fuzzers
 127 auto quick clone
-128 auto quick clone
+128 auto quick clone fsr
 129 auto quick clone
 130 fuzzers clone
 131 auto quick clone
 132 auto quick clone
-133 auto quick quota
-134 quota auto quick
+133 dangerous_fuzzers
+134 dangerous_fuzzers
 135 auto logprint quick v2log
 136 attr2
 137 auto metadata v2log
-138 auto quick quota
+138 auto quick
 139 auto quick clone
 140 auto clone
 141 auto log metadata
@@ -178,7 +178,7 @@
 178 mkfs other auto
 179 auto quick clone
 180 auto quick clone
-181 log auto quick
+181 shutdown log auto quick
 182 auto quick clone
 183 rw other auto quick
 184 auto quick clone
@@ -193,7 +193,7 @@
 193 auto quick clone
 194 rw auto
 195 ioctl dump auto quick
-196 quota auto quick
+196 auto quick rw
 197 dir auto quick
 198 auto quick clone
 199 mount auto quick
@@ -209,7 +209,7 @@
 209 auto quick clone
 210 auto quick clone
 211 clone_stress
-212 auto quick clone
+212 shutdown auto quick clone
 213 auto quick clone
 214 auto quick clone
 215 auto quick clone
@@ -225,22 +225,22 @@
 225 auto quick clone
 226 auto quick clone
 227 auto fsr
-228 auto quick clone
+228 auto quick clone punch
 229 auto rw
-230 auto quick clone
+230 auto quick clone punch
 231 auto quick clone
 232 auto quick clone
 233 auto quick rmap
-234 auto quick rmap
+234 auto quick rmap punch
 235 fuzzers rmap
-236 auto rmap
+236 auto rmap punch
 237 auto quick clone
 238 auto quick metadata ioctl
 239 auto quick clone
 240 auto quick clone
 241 auto quick clone
-242 auto quick prealloc
-243 auto quick clone
+242 auto quick prealloc zero
+243 auto quick clone punch
 244 auto quota quick
 245 auto quick clone
 246 auto quick clone
@@ -249,7 +249,7 @@
 249 auto quick clone
 250 auto quick rw prealloc metadata
 251 auto quick clone
-252 auto quick prealloc
+252 auto quick prealloc punch
 253 auto quick
 254 auto quick clone
 255 auto quick clone
@@ -257,25 +257,41 @@
 257 auto quick clone
 258 auto quick clone
 259 auto quick
-260 auto quick quota
+260 auto attr quick
 261 auto quick quota
-262 auto quick quota
-263 auto quick clone
-264 auto quick clone
+262 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+263 auto quick quota
+264 auto quick mount
 265 auto clone
 266 dump ioctl auto quick
 267 dump ioctl tape
 268 dump ioctl tape
+269 auto quick ioctl
+270 auto quick mount
+271 auto quick rmap fsmap
+272 auto quick rmap fsmap
+273 auto rmap fsmap
+274 auto quick rmap fsmap
+275 auto quick rmap fsmap
+276 auto quick rmap fsmap
+277 auto quick rmap fsmap
 278 repair auto
 279 auto mkfs
+280 auto quick clone
 281 dump ioctl auto quick
 282 dump ioctl auto quick
 283 dump ioctl auto quick
+284 auto quick dump copy db mkfs repair
+285 dangerous_fuzzers dangerous_scrub
+286 dangerous_fuzzers dangerous_scrub dangerous_online_repair
 287 auto dump quota quick
-290 auto rw prealloc quick ioctl
+288 auto quick repair fuzzers
+289 growfs auto quick
+290 auto rw prealloc quick ioctl zero
 291 auto repair
 292 auto mkfs quick
 293 auto quick
+294 auto dir metadata dangerous
 295 auto logprint quick
 296 dump auto quick
 297 auto freeze
@@ -287,7 +303,7 @@
 303 auto quick quota
 304 auto quick quota
 305 auto quota
-306 auto dangerous quick
+306 auto dangerous quick punch
 307 auto quick clone
 308 auto quick clone
 309 auto clone
@@ -309,3 +325,97 @@
 325 auto quick clone
 326 auto quick clone
 327 auto quick clone
+328 auto quick clone fsr
+329 auto quick clone fsr
+330 auto quick clone fsr quota
+331 auto quick rmap clone
+332 auto quick rmap clone
+333 auto quick rmap
+334 auto quick rmap
+335 auto rmap
+336 auto rmap
+337 fuzzers rmap
+338 auto quick rmap
+339 auto quick rmap
+340 auto quick rmap
+341 auto quick rmap
+342 auto quick rmap
+343 auto quick rmap
+344 auto quick clone
+345 auto quick clone
+346 auto quick clone
+347 auto quick clone
+348 auto quick fuzzers repair
+349 dangerous_fuzzers scrub
+350 dangerous_fuzzers dangerous_scrub dangerous_repair
+351 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+352 dangerous_fuzzers dangerous_scrub dangerous_repair
+353 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+354 dangerous_fuzzers dangerous_scrub dangerous_repair
+355 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+356 dangerous_fuzzers dangerous_scrub dangerous_repair
+357 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+358 dangerous_fuzzers dangerous_scrub dangerous_repair
+359 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+360 dangerous_fuzzers dangerous_scrub dangerous_repair
+361 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+362 dangerous_fuzzers dangerous_scrub dangerous_repair
+363 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+364 dangerous_fuzzers dangerous_scrub dangerous_repair
+365 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+366 dangerous_fuzzers dangerous_scrub dangerous_repair
+367 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+368 dangerous_fuzzers dangerous_scrub dangerous_repair
+369 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+370 dangerous_fuzzers dangerous_scrub dangerous_repair
+371 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+372 dangerous_fuzzers dangerous_scrub dangerous_repair
+373 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+374 dangerous_fuzzers dangerous_scrub dangerous_repair
+375 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+376 dangerous_fuzzers dangerous_scrub dangerous_repair
+377 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+378 dangerous_fuzzers dangerous_scrub dangerous_repair
+379 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+380 dangerous_fuzzers dangerous_scrub dangerous_repair
+381 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+382 dangerous_fuzzers dangerous_scrub dangerous_repair
+383 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+384 dangerous_fuzzers dangerous_scrub dangerous_repair
+385 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+386 dangerous_fuzzers dangerous_scrub dangerous_repair
+387 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+388 dangerous_fuzzers dangerous_scrub dangerous_repair
+389 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+390 dangerous_fuzzers dangerous_scrub dangerous_repair
+391 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+392 dangerous_fuzzers dangerous_scrub dangerous_repair
+393 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+394 dangerous_fuzzers dangerous_scrub dangerous_repair
+395 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+396 dangerous_fuzzers dangerous_scrub dangerous_repair
+397 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+398 dangerous_fuzzers dangerous_scrub dangerous_repair
+399 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+400 dangerous_fuzzers dangerous_scrub dangerous_repair
+401 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+402 dangerous_fuzzers dangerous_scrub dangerous_repair
+403 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+404 dangerous_fuzzers dangerous_scrub dangerous_repair
+405 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+406 dangerous_fuzzers dangerous_scrub dangerous_repair
+407 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+408 dangerous_fuzzers dangerous_scrub dangerous_repair
+409 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+410 dangerous_fuzzers dangerous_scrub dangerous_repair
+411 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+412 dangerous_fuzzers dangerous_scrub dangerous_repair
+413 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+414 dangerous_fuzzers dangerous_scrub dangerous_repair
+415 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+416 dangerous_fuzzers dangerous_scrub dangerous_repair
+417 dangerous_fuzzers dangerous_scrub dangerous_online_repair
+418 dangerous_fuzzers dangerous_scrub dangerous_repair
+419 auto quick
+420 auto quick clone dedupe
+421 auto quick clone dedupe

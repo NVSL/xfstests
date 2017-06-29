@@ -53,6 +53,7 @@ _require_logstate
 echo "mkfs"
 _scratch_mkfs >>$seqres.full 2>&1 \
     || _fail "mkfs scratch failed"
+_require_metadata_journaling $SCRATCH_DEV
 
 echo "mount"
 _scratch_mount >>$seqres.full 2>&1 \
@@ -72,7 +73,7 @@ _print_logstate
 
 # curious if FS consistent at start
 if false; then
-    if _xfs_check $SCRATCH_DEV; then
+    if _check_scratch_fs; then
        echo "*** checked ok ***"
     fi
 fi
@@ -82,7 +83,7 @@ _scratch_mount $mnt >>$seqres.full 2>&1 \
     || _fail "mount failed: $mnt $MOUNT_OPTIONS"
 
 echo "ls SCRATCH_MNT"
-ls $SCRATCH_MNT
+ls $SCRATCH_MNT | _filter_lostfound
 
 echo "unmount"
 _scratch_unmount

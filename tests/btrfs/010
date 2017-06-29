@@ -1,11 +1,12 @@
 #! /bin/bash
-# BTRFS QA Test No. 010
+# FS QA Test 10
 #
-# Test if snapshot-aware defrag can work well on partial extents, ie.
-# extent_offset is not zero.
+# Test delayed allocation with a large number of extents that are merged.
+# Regression test for patch "Btrfs: fix delalloc accounting leak caused
+# by u32 overflow".
 #
 #-----------------------------------------------------------------------
-# Copyright (c) 2013 Oracle.  All Rights Reserved.
+# Copyright (c) 2017 Facebook.  All Rights Reserved.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -31,63 +32,44 @@ tmp=/tmp/$$
 status=1	# failure is the default!
 trap "_cleanup; exit \$status" 0 1 2 3 15
 
+test_file="$TEST_DIR/$seq"
+
 _cleanup()
 {
-    cd /
-    rm -f $tmp.*
+	cd /
+	rm -f $tmp.* "$test_file"
 }
 
-# get standard environment, filters and checks
 . ./common/rc
 . ./common/filter
-. ./common/defrag
-
-# real QA test starts here
-
-# Modify as appropriate.
-_supported_fs btrfs
-_supported_os Linux
-_require_scratch
 
 rm -f $seqres.full
 
-_scratch_mkfs > /dev/null 2>&1
-_scratch_mount
+_supported_fs btrfs
+_supported_os Linux
+_require_test
 
-subvol=$SCRATCH_MNT/subvol
-
-$BTRFS_UTIL_PROG subvolume create $subvol >> $seqres.full
-
-for i in `seq 5 -1 1`
-do
-	dd if=/dev/zero of=$subvol/foobar bs=6k count=1 seek=$i conv=notrunc oflag=dsync 2>> $seqres.full
+# Create 32k extents. All of these extents will be accounted as outstanding and
+# reserved.
+for ((i = 0; i < 32 * 1024; i++)); do
+	$XFS_IO_PROG -f -c "pwrite $((2 * 4096 * i)) 4096" "$test_file" >>"$seqres.full"
 done
 
+# Fill in the gaps between the created extents. The outstanding extents will
+# all be merged into 1, but there will still be 32k reserved.
+for ((i = 0; i < 32 * 1024; i++)); do
+	$XFS_IO_PROG -f -c "pwrite $((2 * 4096 * i + 1)) 4096" "$test_file" >>"$seqres.full"
+done
+
+# Flush the delayed allocations.
 sync
-for i in `seq 2 -1 1`
-do
-	$BTRFS_UTIL_PROG subvolume snapshot $subvol $SCRATCH_MNT/snap-$i >> $seqres.full
-done
 
-$BTRFS_UTIL_PROG filesystem defrag $subvol/foobar && sync
+# Make sure that we didn't leak any metadata space.
+uuid="$(findmnt -n -o UUID "$TEST_DIR")"
+cd "/sys/fs/btrfs/$uuid/allocation"
+echo "$(($(cat metadata/bytes_may_use) - $(cat global_rsv_reserved))) bytes leaked" | grep -v '^0 '
 
-num_extent_orig=`_extent_count $subvol/foobar`
-num_extent_snap1=`_extent_count $SCRATCH_MNT/snap-1/foobar`
-num_extent_snap2=`_extent_count $SCRATCH_MNT/snap-2/foobar`
+echo "Silence is golden"
 
-echo "$num_extent_orig $num_extent_snap1 $num_extent_snap2" >> $seqres.full
-
-# if error
-if [ "x$num_extent_snap1" != "x$num_extent_orig" -o "x$num_extent_snap2" != "x$num_extent_orig" ]; then
-	echo "number of extents mis-match!"
-	exit
-fi
-
-# optional stuff if your test has verbose output to help resolve problems
-#echo
-#echo "If failure, check $seqres.full (this) and $seqres.full.ok (reference)"
-
-# success, all done
-echo "done"
 status=0
 exit

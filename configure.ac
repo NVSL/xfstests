@@ -1,5 +1,6 @@
 AC_INIT([xfstests], [1.1.1])
-AC_PREREQ(2.50)
+AC_CONFIG_MACRO_DIR([m4])
+LT_INIT
 AC_CONFIG_SRCDIR([src/xfsctl.c])
 AC_PACKAGE_GLOBALS(xfstests)
 AC_PACKAGE_UTILITIES(xfstests)
@@ -32,6 +33,7 @@ AC_HEADER_STDC
 			xfs/platform_defs.h	\
 			btrfs/ioctl.h		\
 			cifs/ioctl.h		\
+			sys/mman.h		\
     ])
 
 AC_CHECK_HEADERS([xfs/xfs_log_format.h],,,[
@@ -74,9 +76,9 @@ in
 		AC_PACKAGE_WANT_DMAPI
 		AC_PACKAGE_WANT_LINUX_FIEMAP_H
 		AC_PACKAGE_WANT_FALLOCATE
+		AC_PACKAGE_WANT_OPEN_BY_HANDLE_AT
 		AC_PACKAGE_WANT_LINUX_PRCTL_H
 		AC_PACKAGE_WANT_LINUX_FS_H
-		AC_PACKAGE_WANT_SSL
 		;;
 esac
 

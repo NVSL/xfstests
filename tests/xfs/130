@@ -73,21 +73,19 @@ _scratch_xfs_repair -n >> "$seqres.full" 2>&1 || \
 
 echo "+ corrupt image"
 seq 0 $((agcount - 1)) | while read ag; do
-	$XFS_DB_PROG -x -c "agf ${ag}" -c "agf ${ag}" -c "addr refcntroot" \
+	_scratch_xfs_db -x -c "agf ${ag}" -c "agf ${ag}" -c "addr refcntroot" \
 		-c "stack" -c "blocktrash -x 4096 -y 4096 -z -n 8 -3" \
-		"${SCRATCH_DEV}" >> "$seqres.full" 2>&1
+		>> "$seqres.full" 2>&1
 done
 
 echo "+ mount image"
-_scratch_mount
-
-echo "+ reflink more"
-_cp_reflink "${SCRATCH_MNT}/file1" "${SCRATCH_MNT}/file4" 2> /dev/null && \
-	_fail "should not be able to reflink with busted refcount btree"
-umount "${SCRATCH_MNT}"
+_scratch_mount >> $seqres.full 2>&1 && \
+	echo "Should not be able to mount with broken refcountbt."
+_scratch_unmount >> $seqres.full 2>&1
 
 echo "+ repair fs"
-_scratch_xfs_repair >> "$seqres.full" 2>&1
+_disable_dmesg_check
+_repair_scratch_fs >> "$seqres.full" 2>&1
 _scratch_xfs_repair >> "$seqres.full" 2>&1
 
 echo "+ mount image (2)"

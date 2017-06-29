@@ -9,10 +9,23 @@
 /results
 
 # autoconf generated files
+/aclocal.m4
 /autom4te.cache
 /configure
+/config.guess
 /config.log
 /config.status
+/config.sub
+/m4/libtool.m4
+/m4/ltoptions.m4
+/m4/ltsugar.m4
+/m4/ltversion.m4
+/m4/lt~obsolete.m4
+
+# libtool
+/libtool
+/install-sh
+/ltmain.sh
 
 # build system
 /include/builddefs
@@ -35,14 +48,18 @@
 /ltp/iogen
 
 # src/ binaries
+/src/af_unix
 /src/alloc
 /src/append_reader
 /src/append_writer
+/src/attr-list-by-handle-cursor-test
 /src/bstat
 /src/bulkstat_unlink_test
 /src/bulkstat_unlink_test_modified
 /src/dbtest
 /src/devzero
+/src/dio-interleaved
+/src/dio-invalidate-cache
 /src/dirperf
 /src/dirstress
 /src/dmiperf
@@ -55,6 +72,7 @@
 /src/fs_perms
 /src/fssum
 /src/fstest
+/src/fsync-err
 /src/fsync-tester
 /src/ftrunc
 /src/genhashnames
@@ -65,6 +83,7 @@
 /src/holes
 /src/holetest
 /src/itrash
+/src/listxattr
 /src/locktest
 /src/loggen
 /src/looptest
@@ -75,6 +94,7 @@
 /src/multi_open_unlink
 /src/nametest
 /src/nsexec
+/src/open_by_handle
 /src/permname
 /src/preallo_rw_pattern_reader
 /src/preallo_rw_pattern_writer
@@ -88,9 +108,12 @@
 /src/seek_copy_test
 /src/seek_sanity_test
 /src/stale_handle
+/src/stat_test
 /src/t_access_root
 /src/t_dir_offset
 /src/t_dir_offset2
+/src/t_dir_type
+/src/t_encrypted_d_revalidate
 /src/t_futimens
 /src/t_getcwd
 /src/t_holes
@@ -99,6 +122,7 @@
 /src/t_mtab
 /src/t_stripealign
 /src/t_truncate_cmtime
+/src/t_truncate_self
 /src/test-nextquota
 /src/testx
 /src/trunc
@@ -107,6 +131,7 @@
 /src/unwritten_sync
 /src/usemem
 /src/writemod
+/src/writev_on_pagefault
 /src/xfsctl
 /src/aio-dio-regress/aio-dio-extend-stat
 /src/aio-dio-regress/aio-dio-fcntl-race
@@ -124,6 +149,10 @@
 /src/cloner
 /src/renameat2
 /src/t_rename_overwrite
+/src/t_mmap_dio
+/src/t_mmap_stale_pmd
+/src/t_mmap_cow_race
+/src/t_mmap_fallocate
 
 # dmapi/ binaries
 /dmapi/src/common/cmd/read_invis

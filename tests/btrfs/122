@@ -49,12 +49,13 @@ rm -f $seqres.full
 _supported_fs btrfs
 _supported_os Linux
 _require_scratch
+_require_btrfs_qgroup_report
 
 rm -f $seqres.full
 
 # Force a small leaf size to make it easier to blow out our root
 # subvolume tree
-_scratch_mkfs "--nodesize 16384"
+_scratch_mkfs "--nodesize 16384" >/dev/null
 _scratch_mount
 _run_btrfs_util_prog quota enable $SCRATCH_MNT
 
@@ -78,11 +79,7 @@ _run_btrfs_util_prog subvolume snapshot $SCRATCH_MNT "$SCRATCH_MNT/snaps/snap2"
 
 _scratch_unmount
 
-# generate a qgroup report and look for inconsistent groups
-$BTRFS_UTIL_PROG check --qgroup-report $SCRATCH_DEV 2>&1 | \
-			grep -q -E "Counts for qgroup.*are different"
-if [ $? -ne 0 ]; then
-	status=0
-fi
 
+# qgroup will be checked by fstest at _check_scratch_fs()
+status=0
 exit

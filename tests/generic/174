@@ -38,6 +38,7 @@ _cleanup()
 
 # get standard environment, filters and checks
 . ./common/rc
+. ./common/populate
 . ./common/filter
 . ./common/attr
 . ./common/reflink
@@ -58,7 +59,7 @@ testdir=$SCRATCH_MNT/test-$seq
 mkdir $testdir
 
 echo "Reformat with appropriate size"
-blksz="$(stat -f $testdir -c '%S')"
+blksz="$(_get_block_size $testdir)"
 nr_blks=10240
 umount $SCRATCH_MNT
 sz_bytes=$((nr_blks * 8 * blksz))
@@ -77,12 +78,12 @@ sync
 
 echo "Allocate the rest of the space"
 nr_free=$(stat -f -c '%f' $testdir)
-touch $testdir/file0 $testdir/file1
-_pwrite_byte 0x61 0 $((blksz * nr_free)) $testdir/eat_my_space >> $seqres.full 2>&1
+_fill_fs $((blksz * nr_free)) $testdir/space $blksz 0 >> $seqres.full 2>&1
 sync
 
 echo "CoW the big file"
-out="$(_pwrite_byte 0x62 0 $((blksz * nr_blks)) $testdir/bigfile -d 2>&1)"
+out="$(_pwrite_byte 0x62 0 $((blksz * nr_blks)) $testdir/bigfile -d 2>&1 | \
+	_filter_xfs_io_error)"
 echo ${out} | grep -q "No space left on device" || echo "CoW should have failed with ENOSPC"
 echo ${out} >> $seqres.full 2>&1
 echo ${out}
@@ -90,7 +91,8 @@ echo ${out}
 echo "Remount and try CoW again"
 _scratch_cycle_mount
 
-out="$(_pwrite_byte 0x62 0 $((blksz * nr_blks)) $testdir/bigfile -d 2>&1)"
+out="$(_pwrite_byte 0x62 0 $((blksz * nr_blks)) $testdir/bigfile -d 2>&1 | \
+	_filter_xfs_io_error)"
 echo ${out} | grep -q "No space left on device" || echo "CoW should have failed with ENOSPC"
 echo ${out} >> $seqres.full 2>&1
 echo ${out}

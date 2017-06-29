@@ -226,6 +226,13 @@ _filter_xfs_io()
     sed -e "s/[0-9/.]* [GMKiBbytes]*, [0-9]* ops\; [0-9/:. sec]* ([infa0-9/.]* [EPGMKiBbytes]*\/sec and [infa0-9/.]* ops\/sec)/XXX Bytes, X ops\; XX:XX:XX.X (XXX YYY\/sec and XXX ops\/sec)/"
 }
 
+# stderr filter for xfs_io to handle change of error output format (e.g.
+# pwrite64 -> pwrite).
+_filter_xfs_io_error()
+{
+	sed -e "s/^\(.*\)64\(: .*$\)/\1\2/"
+}
+
 _filter_xfs_io_unique()
 {
     common_line_filter | _filter_xfs_io
@@ -258,7 +265,7 @@ _filter_xfs_io_units_modified()
 
 _filter_xfs_io_blocks_modified()
 {
-	BLOCK_SIZE=$(get_block_size $SCRATCH_MNT)
+	BLOCK_SIZE=$(_get_block_size $SCRATCH_MNT)
 
 	_filter_xfs_io_units_modified "Block" $BLOCK_SIZE
 }
@@ -273,13 +280,18 @@ _filter_xfs_io_pages_modified()
 
 _filter_test_dir()
 {
-	sed -e "s,$TEST_DEV,TEST_DEV,g" -e "s,$TEST_DIR,TEST_DIR,g"
+	# TEST_DEV may be a prefix of TEST_DIR (e.g. /mnt, /mnt/ovl-mnt)
+	# so substitute TEST_DIR first
+	sed -e "s,\B$TEST_DIR,TEST_DIR,g" \
+	    -e "s,\B$TEST_DEV,TEST_DEV,g"
 }
 
 _filter_scratch()
 {
-	sed -e "s,$SCRATCH_DEV,SCRATCH_DEV,g" \
-	    -e "s,$SCRATCH_MNT,SCRATCH_MNT,g" \
+	# SCRATCH_DEV may be a prefix of SCRATCH_MNT (e.g. /mnt, /mnt/ovl-mnt)
+	# so substitute SCRATCH_MNT first
+	sed -e "s,\B$SCRATCH_MNT,SCRATCH_MNT,g" \
+	    -e "s,\B$SCRATCH_DEV,SCRATCH_DEV,g" \
 	    -e "/.use_space/d"
 }
 
@@ -292,7 +304,7 @@ _filter_scratch_pool()
 
 _filter_spaces()
 {
-       sed -e 's/ [ ]*/ /g'
+	sed -e "s/\s\+/ /g"
 }
 
 _filter_quota()
@@ -376,7 +388,7 @@ _filter_ro_mount() {
 
 _filter_od()
 {
-	BLOCK_SIZE=$(get_block_size $SCRATCH_MNT)
+	BLOCK_SIZE=$(_get_block_size $SCRATCH_MNT)
 	$AWK_PROG -v block_size=$BLOCK_SIZE '
 		/^[0-9]+/ {
 			offset = strtonum("0"$1);
@@ -392,6 +404,37 @@ _filter_od()
 _filter_mknod()
 {
 	sed -e "s/mknod: [\`']\(.*\)': File exists/mknod: \1: File exists/"
+}
+
+_filter_lostfound()
+{
+	sed -e '/^lost+found$/d'
+}
+
+_filter_ovl_dirs()
+{
+	sed -e "s,$OVL_LOWER,OVL_LOWER,g" \
+	    -e "s,$OVL_UPPER,OVL_UPPER,g" \
+	    -e "s,$OVL_WORK,OVL_WORK,g"
+}
+
+# interpret filefrag output,
+# eg. "physical 1234, length 10, logical 5678" -> "1234#10#5678"
+_filter_filefrag()
+{
+	perl -ne '
+	if (/blocks? of (\d+) bytes/) {
+		$blocksize = $1;
+		next
+	}
+	($ext, $logical, $physical, $length) =
+		(/^\s*(\d+):\s+(\d+)..\s+\d+:\s+(\d+)..\s+\d+:\s+(\d+):/)
+	or next;
+	($flags) = /.*:\s*(\S*)$/;
+	print $physical * $blocksize, "#",
+	      $length * $blocksize, "#",
+	      $logical * $blocksize, "#",
+	      $flags, "\n"'
 }
 
 # make sure this script returns success

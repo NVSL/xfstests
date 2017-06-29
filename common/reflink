@@ -28,6 +28,15 @@ _require_cp_reflink()
                _notrun "This test requires a cp with --reflink support."
 }
 
+# Can we reflink between arbitrary file sets?
+# i.e. if we reflink a->b and c->d, can we later share
+# blocks between b & c?
+_require_arbitrary_fileset_reflink()
+{
+	test "$FSTYP" = "ocfs2" && \
+		_notrun "reflink between arbitrary file groups not supported in $FSTYP"
+}
+
 # Given 2 files, verify that they have the same mapping but different
 # inodes - i.e. an undisturbed reflink
 # Silent if so, make noise if not
@@ -52,8 +61,8 @@ _require_test_reflink()
 	_require_xfs_io_command "reflink"
 
 	rm -rf "$TEST_DIR/file1" "$TEST_DIR/file2"
-	"$XFS_IO_PROG" -f -c "pwrite -S 0x61 0 65536" "$TEST_DIR/file1" > /dev/null
-	"$XFS_IO_PROG" -f -c "reflink $TEST_DIR/file1 0 0 65536" "$TEST_DIR/file2" > /dev/null
+	$XFS_IO_PROG -f -c "pwrite -S 0x61 0 65536" "$TEST_DIR/file1" > /dev/null
+	$XFS_IO_PROG -f -c "reflink $TEST_DIR/file1 0 0 65536" "$TEST_DIR/file2" > /dev/null
 	if [ ! -s "$TEST_DIR/file2" ]; then
 		rm -rf "$TEST_DIR/file1" "$TEST_DIR/file2"
 		_notrun "Reflink not supported by test filesystem type: $FSTYP"
@@ -69,11 +78,55 @@ _require_scratch_reflink()
 
 	_scratch_mkfs > /dev/null
 	_scratch_mount
-	"$XFS_IO_PROG" -f -c "pwrite -S 0x61 0 65536" "$SCRATCH_MNT/file1" > /dev/null
-	"$XFS_IO_PROG" -f -c "reflink $SCRATCH_MNT/file1 0 0 65536" "$SCRATCH_MNT/file2" > /dev/null
+	$XFS_IO_PROG -f -c "pwrite -S 0x61 0 65536" "$SCRATCH_MNT/file1" > /dev/null
+	$XFS_IO_PROG -f -c "reflink $SCRATCH_MNT/file1 0 0 65536" "$SCRATCH_MNT/file2" > /dev/null
 	if [ ! -s "$SCRATCH_MNT/file2" ]; then
 		_scratch_unmount
 		_notrun "Reflink not supported by scratch filesystem type: $FSTYP"
+	fi
+	_scratch_unmount
+}
+
+# this test requires scratch fs to report explicit SHARED flag
+# e.g.
+#   0         4K         8K
+#    / File1: Extent 0  \
+#   /                    \
+#   |<- On disk Extent-->|
+#   |        /
+#   | File2 /
+#     Extent: 0
+# Fs supports explicit SHARED extent reporting should report fiemap like:
+# File1: 2 extents
+# Extent 0-4K: SHARED
+# Extent 4-8K:
+# File2: 1 extents
+# Extent 0-4K: SHARED
+#
+# Fs doesn't support explicit reporting will report fiemap like:
+# File1: 1 extent
+# Extent 0-8K: SHARED
+# File2: 1 extent
+# Extent 0-4K: SHARED
+_require_scratch_explicit_shared_extents()
+{
+	_require_scratch
+	_require_xfs_io_command "fiemap"
+	_require_scratch_reflink
+	_require_xfs_io_command "reflink"
+	local nr_extents
+
+	_scratch_mkfs > /dev/null
+	_scratch_mount
+
+	_pwrite_byte 0x61 0 128k $SCRATCH_MNT/file1 >/dev/null
+	_reflink_range $SCRATCH_MNT/file1 0 $SCRATCH_MNT/file2 0 64k >/dev/null
+
+	_scratch_cycle_mount
+
+	nr_extents=$(_count_extents $SCRATCH_MNT/file1)
+	if [ $nr_extents -eq 1 ]; then
+		_notrun "Explicit SHARED flag reporting not support by filesystem type: $FSTYP"
 	fi
 	_scratch_unmount
 }
@@ -85,9 +138,9 @@ _require_test_dedupe()
 	_require_xfs_io_command "dedupe"
 
 	rm -rf "$TEST_DIR/file1" "$TEST_DIR/file2"
-	"$XFS_IO_PROG" -f -c "pwrite -S 0x61 0 65536" "$TEST_DIR/file1" > /dev/null
-	"$XFS_IO_PROG" -f -c "pwrite -S 0x61 0 65536" "$TEST_DIR/file2" > /dev/null
-	testio="$("$XFS_IO_PROG" -f -c "dedupe $TEST_DIR/file1 0 0 65536" "$TEST_DIR/file2" 2>&1)"
+	$XFS_IO_PROG -f -c "pwrite -S 0x61 0 65536" "$TEST_DIR/file1" > /dev/null
+	$XFS_IO_PROG -f -c "pwrite -S 0x61 0 65536" "$TEST_DIR/file2" > /dev/null
+	testio="$($XFS_IO_PROG -f -c "dedupe $TEST_DIR/file1 0 0 65536" "$TEST_DIR/file2" 2>&1)"
 	echo $testio | grep -q "Operation not supported" && \
 		_notrun "Dedupe not supported by test filesystem type: $FSTYP"
 	echo $testio | grep -q "Inappropriate ioctl for device" && \
@@ -105,9 +158,9 @@ _require_scratch_dedupe()
 
 	_scratch_mkfs > /dev/null
 	_scratch_mount
-	"$XFS_IO_PROG" -f -c "pwrite -S 0x61 0 65536" "$SCRATCH_MNT/file1" > /dev/null
-	"$XFS_IO_PROG" -f -c "pwrite -S 0x61 0 65536" "$SCRATCH_MNT/file2" > /dev/null
-	testio="$("$XFS_IO_PROG" -f -c "dedupe $TEST_DIR/file1 0 0 65536" "$TEST_DIR/file2" 2>&1)"
+	$XFS_IO_PROG -f -c "pwrite -S 0x61 0 65536" "$SCRATCH_MNT/file1" > /dev/null
+	$XFS_IO_PROG -f -c "pwrite -S 0x61 0 65536" "$SCRATCH_MNT/file2" > /dev/null
+	testio="$($XFS_IO_PROG -f -c "dedupe $SCRATCH_MNT/file1 0 0 65536" "$SCRATCH_MNT/file2" 2>&1)"
 	echo $testio | grep -q "Operation not supported" && \
 		_notrun "Dedupe not supported by test filesystem type: $FSTYP"
 	echo $testio | grep -q "Inappropriate ioctl for device" && \
@@ -153,7 +206,7 @@ _cp_reflink() {
 	file1="$1"
 	file2="$2"
 
-	cp --reflink=always -p "$file1" "$file2"
+	cp --reflink=always -p -f "$file1" "$file2"
 }
 
 # Reflink some file1 into file2
@@ -161,7 +214,7 @@ _reflink() {
 	file1="$1"
 	file2="$2"
 
-	"$XFS_IO_PROG" -f -c "reflink $file1" "$file2"
+	$XFS_IO_PROG -f -c "reflink $file1" "$file2"
 }
 
 # Reflink some part of file1 into another part of file2
@@ -173,7 +226,7 @@ _reflink_range() {
 	len="$5"
 	xfs_io_args="$6"
 
-	"$XFS_IO_PROG" $xfs_io_args -f -c "reflink $file1 $offset1 $offset2 $len" "$file2"
+	$XFS_IO_PROG $xfs_io_args -f -c "reflink $file1 $offset1 $offset2 $len" "$file2"
 }
 
 # Dedupe some part of file1 into another part of file2
@@ -185,7 +238,13 @@ _dedupe_range() {
 	len="$5"
 	xfs_io_args="$6"
 
-	"$XFS_IO_PROG" $xfs_io_args -f -c "dedupe $file1 $offset1 $offset2 $len" "$file2"
+	$XFS_IO_PROG $xfs_io_args -f -c "dedupe $file1 $offset1 $offset2 $len" "$file2"
+}
+
+# Unify xfs_io dedupe ioctl error message prefix
+_filter_dedupe_error()
+{
+	sed -e 's/^dedupe:/XFS_IOC_FILE_EXTENT_SAME:/g'
 }
 
 # Create a file of interleaved unwritten and reflinked blocks

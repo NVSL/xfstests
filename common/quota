@@ -34,7 +34,7 @@ _require_quota()
 	    _notrun "Installed kernel does not support quotas"
 	fi
 	;;
-    gfs2)
+    gfs2|ocfs2)
 	;;
     xfs)
 	if [ ! -f /proc/fs/xfs/xqmstat ]; then
@@ -51,13 +51,6 @@ _require_quota()
 	_notrun "disk quotas not supported by this filesystem type: $FSTYP"
 	;;
     esac
-
-    # SELinux adds extra xattrs which can mess up our expected output.
-    # So, mount with a context, and they won't be created
-    # nfs_t is a "liberal" context so we can use it.
-    if [ -x /usr/sbin/selinuxenabled ] && /usr/sbin/selinuxenabled; then
-        export SELINUX_MOUNT_OPTIONS="-o context=system_u:object_r:nfs_t:s0"
-    fi
 }
 
 #
@@ -78,16 +71,54 @@ _require_xfs_quota()
 }
 
 #
-# checks that the XFS project quota support in the kernel is enabled.
+# checks that xfs_quota can operate on foreign (non-xfs) filesystems
+# Skips check on xfs filesystems, old xfs_quota is fine there.
+# Appends "-f" to enable foreign behavior on non-xfs filesystems if available.
+#
+_require_xfs_quota_foreign()
+{
+	if [ "$FSTYP" != "xfs" ]; then
+		$XFS_QUOTA_PROG -f -V &>/dev/null || \
+		 _notrun "xfs_quota binary does not support foreign filesystems"
+		XFS_QUOTA_PROG="$XFS_QUOTA_PROG -f"
+	fi
+}
+
+#
+# checks that the project quota support in the kernel is enabled.
 #
 _require_prjquota()
 {
     [ -n "$1" ] && _dev="$1" || _dev="$TEST_DEV"
-    src/feature -p $_dev
+    if [ "$FSTYP" == "ext4" ]; then
+	dumpe2fs -h $_dev 2>&1 | grep -qw project || \
+		_notrun "Project quota not available on this ext4"
+    fi
+    src/feature -P $_dev
     [ $? -ne 0 ] && _notrun "Installed kernel does not support project quotas"
     if [ "$USE_EXTERNAL" = yes -a ! -z "$_dev" ]; then
 	_notrun "Project quotas not supported on realtime filesystem"
     fi
+}
+
+#
+# Do we have GETNEXTQUOTA?  Querying ID 0 should work.
+#
+_require_getnextquota()
+{
+	_require_test_program "test-nextquota"
+	$here/src/test-nextquota -i 0 -u -d $SCRATCH_DEV &> $seqres.full || \
+		_notrun "No GETNEXTQUOTA support"
+}
+
+#
+# ext4 (for now) is unique in that we must enable the project quota feature
+# prior to mount.  This is a relatively new feature ...
+_scratch_enable_pquota()
+{
+	[ "$FSTYP" != "ext4" ] && return
+
+	tune2fs -O quota,project $SCRATCH_DEV >>$seqres.full 2>&1
 }
 
 #
@@ -111,7 +142,7 @@ _file_as_id()
 
     parent=`dirname $1`
     if [ $3 = p ]; then
-	echo PARENT: xfs_io -r -c "chproj $2" -c "chattr +P" $parent >>$seqres.full
+	echo PARENT: $XFS_IO_PROG -r -c "chproj $2" -c "chattr +P" $parent >>$seqres.full
 	$XFS_IO_PROG -r -c "chproj $2" -c "chattr +P" $parent >>$seqres.full 2>&1
 	magik='$>'	# (irrelevent, above set projid-inherit-on-parent)
     elif [ $3 = u ]; then
@@ -137,7 +168,7 @@ EOF
 #	exec "dd if=/dev/zero of=$1 bs=$4 count=$5 >>$seqres.full 2>&1";
 
     if [ $3 = p ]; then
-	echo PARENT: xfs_io -r -c "chproj 0" -c "chattr -P" $parent >>$seqres.full
+	echo PARENT: $XFS_IO_PROG -r -c "chproj 0" -c "chattr -P" $parent >>$seqres.full
 	$XFS_IO_PROG -r -c "chproj 0" -c "chattr -P" $parent >>$seqres.full 2>&1
     fi
 }
@@ -169,6 +200,12 @@ _qmount()
 {
     _scratch_unmount >/dev/null 2>&1
     _scratch_mount || _fail "qmount failed"
+    # xfs doesn't need these setups and quotacheck even fails on xfs
+    # redirect the output to $seqres.full for debug purpose and ignore results
+    if [ "$FSTYP" != "xfs" ]; then
+        quotacheck -ug $SCRATCH_MNT >>$seqres.full 2>&1
+        quotaon -ug $SCRATCH_MNT >>$seqres.full 2>&1
+    fi
     chmod ugo+rwx $SCRATCH_MNT
 }
 
@@ -177,6 +214,8 @@ _qmount()
 #
 _qmount_option()
 {
+	OPTS=$1
+
 	# Replace any user defined quota options
 	# with the quota option that we want.
 	# Simplest to do this rather than delete existing ones first because
@@ -189,16 +228,24 @@ _qmount_option()
 		-e 's/usrquota/QUOTA/g'    \
 		-e 's/gquota/QUOTA/g'      \
 		-e 's/grpquota/QUOTA/g'    \
-		-e 's/pquota/QUOTA/g'      \
+		-e 's/\bpquota/QUOTA/g'    \
+		-e 's/prjquota/QUOTA/g'    \
 		-e 's/quota/QUOTA/g'       \
 		-e 's/uqnoenforce/QUOTA/g' \
 		-e 's/gqnoenforce/QUOTA/g' \
 		-e 's/pqnoenforce/QUOTA/g' \
 		-e 's/qnoenforce/QUOTA/g'  \
-		-e "s/QUOTA/$1/g"`
+		-e "s/QUOTA/$OPTS/g"`
 
+	# ext4 doesn't _do_ "-o pquota/prjquota" because reasons
+	# Switch it to "quota" to enable mkfs-time pquota
+	if [ "$FSTYP" == "ext4" ]; then
+		OPTS=`echo $OPTS \
+		| sed	-e 's/\bpquota/quota/g'	\
+			-e 's/prjquota/quota/g'`
+	fi
 	# Ensure we have the given quota option - duplicates are fine
-	export MOUNT_OPTIONS="$MOUNT_OPTIONS -o $1"
+	export MOUNT_OPTIONS="$MOUNT_OPTIONS -o $OPTS"
 	echo "MOUNT_OPTIONS = $MOUNT_OPTIONS" >>$seqres.full
 }
 
@@ -246,6 +293,16 @@ _check_quota_usage()
 		echo "Comparing group usage"
 		diff $tmp.group.orig $tmp.group.checked
 	}
+}
+
+# Report the block usage of root, $qa_user, and nobody
+_report_quota_blocks() {
+	repquota $1 | egrep "^($qa_user|root|nobody)" | awk '{print $1, $3, $4, $5}'
+}
+
+# Report the inode usage of root, $qa_user, and nobody
+_report_quota_inodes() {
+	repquota $1 | egrep "^($qa_user|root|nobody)" | awk '{print $1, $6, $7, $8}'
 }
 
 # make sure this script returns success

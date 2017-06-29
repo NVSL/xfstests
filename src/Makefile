@@ -9,10 +9,11 @@ TARGETS = dirstress fill fill2 getpagesize holes lstat64 \
 	nametest permname randholes runas truncfile usemem \
 	mmapcat append_reader append_writer dirperf metaperf \
 	devzero feature alloc fault fstest t_access_root \
-	godown resvtest writemod makeextents itrash rename \
+	godown resvtest writemod writev_on_pagefault makeextents itrash rename \
 	multi_open_unlink dmiperf unwritten_sync genhashnames t_holes \
 	t_mmap_writev t_truncate_cmtime dirhash_collide t_rename_overwrite \
-	holetest
+	holetest t_truncate_self t_mmap_dio af_unix t_mmap_stale_pmd \
+	t_mmap_cow_race t_mmap_fallocate fsync-err
 
 LINUX_TARGETS = xfsctl bstat t_mtab getdevicesize preallo_rw_pattern_reader \
 	preallo_rw_pattern_writer ftrunc trunc fs_perms testx looptest \
@@ -20,7 +21,9 @@ LINUX_TARGETS = xfsctl bstat t_mtab getdevicesize preallo_rw_pattern_reader \
 	bulkstat_unlink_test_modified t_dir_offset t_futimens t_immutable \
 	stale_handle pwrite_mmap_blocked t_dir_offset2 seek_sanity_test \
 	seek_copy_test t_readdir_1 t_readdir_2 fsync-tester nsexec cloner \
-	renameat2 t_getcwd e4compact test-nextquota punch-alternating
+	renameat2 t_getcwd e4compact test-nextquota punch-alternating \
+	attr-list-by-handle-cursor-test listxattr dio-interleaved t_dir_type \
+	dio-invalidate-cache stat_test t_encrypted_d_revalidate
 
 SUBDIRS =
 
@@ -34,18 +37,19 @@ ifeq ($(HAVE_FIEMAP), true)
 LINUX_TARGETS += fiemap-tester
 endif
 
+ifeq ($(HAVE_OPEN_BY_HANDLE_AT), true)
+LINUX_TARGETS += open_by_handle
+endif
+
 ifeq ($(HAVE_FALLOCATE), true)
 LCFLAGS += -DHAVE_FALLOCATE
 endif
-
-IRIX_TARGETS = open_unlink
 
 ifeq ($(PKG_PLATFORM),linux)
 TARGETS += $(LINUX_TARGETS)
 endif
 
 ifeq ($(PKG_PLATFORM),irix)
-TARGETS += $(IRIX_TARGETS)
 LLDLIBS += -lgen
 endif
 
@@ -56,25 +60,22 @@ endif
 
 ifeq ($(HAVE_AIO), true)
 SUBDIRS += aio-dio-regress
-endif
-
-ifeq ($(HAVE_SSL), true)
-TARGETS += fssum
-LLDLIBS += -lssl -lcrypto
-ifeq ($(PKG_PLATFORM),linux)
-CFLAGS += -D__LINUX__
-endif
+LLDLIBS += -laio
 endif
 
 CFILES = $(TARGETS:=.c)
-LDIRT = $(TARGETS)
+LDIRT = $(TARGETS) fssum
 
 
-default: depend $(TARGETS) $(SUBDIRS)
+default: depend $(LDIRT) $(SUBDIRS)
 
 depend: .dep
 
 include $(BUILDRULES)
+
+fssum: fssum.c md5.c
+	@echo "    [CC]    $@"
+	$(Q)$(LTLINK) fssum.c md5.c -o $@ $(CFLAGS) $(LDFLAGS) $(LDLIBS)
 
 $(TARGETS): $(LIBTEST)
 	@echo "    [CC]    $@"
@@ -84,8 +85,8 @@ LINKTEST = $(LTLINK) $@.c -o $@ $(CFLAGS) $(LDFLAGS)
 
 install: default $(addsuffix -install,$(SUBDIRS))
 	$(INSTALL) -m 755 -d $(PKG_LIB_DIR)/src
-	$(LTINSTALL) -m 755 $(TARGETS) $(PKG_LIB_DIR)/src
-	$(LTINSTALL) -m 755 fill2attr fill2fs fill2fs_check scaleread.sh $(PKG_LIB_DIR)/src
+	$(LTINSTALL) -m 755 $(LDIRT) $(PKG_LIB_DIR)/src
+	$(LTINSTALL) -m 755 dmerror fill2attr fill2fs fill2fs_check scaleread.sh $(PKG_LIB_DIR)/src
 	$(LTINSTALL) -m 644 dumpfile $(PKG_LIB_DIR)/src
 
 %-install:

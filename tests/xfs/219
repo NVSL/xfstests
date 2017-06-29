@@ -50,6 +50,7 @@ _cleanup()
 _supported_os Linux
 _require_scratch_reflink
 _require_xfs_io_command "falloc"
+_require_xfs_io_command "cowextsize"
 _require_odirect
 
 rm -f $seqres.full
@@ -65,7 +66,7 @@ echo "Create the original files"
 blksz=65536
 nr=64
 filesize=$((blksz * nr))
-real_blksz=$(stat -f -c '%S' $testdir)
+real_blksz=$(_get_block_size $testdir)
 internal_blks=$((filesize / real_blksz))
 $XFS_IO_PROG -c "cowextsize $((blksz * 16))" $testdir >> $seqres.full
 _weave_reflink_holes $blksz $nr $testdir/file1 $testdir/file3 >> $seqres.full
