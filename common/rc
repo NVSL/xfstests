@@ -531,15 +531,16 @@ _test_mount()
 
 _test_unmount()
 {
-	if [ "$FSTYP" == "overlay" ]; then
-		_overlay_test_unmount
-	else
-		$UMOUNT_PROG $TEST_DEV
-	fi
+       if [ "$FSTYP" == "overlay" ]; then
+               _overlay_test_unmount
+       else
+               $UMOUNT_PROG $TEST_DEV
+       fi
 }
 
 _test_cycle_mount()
 {
+
     if [ "$FSTYP" = tmpfs ]; then
 	return
     fi
@@ -838,9 +839,13 @@ _scratch_mkfs()
 		;;
         NOVA)
 		_scratch_cleanup_files
+		mkfs_filter="cat"
+		mkfs_cmd=true
 		;;
         pmfs)
 		_scratch_cleanup_files
+		mkfs_filter="cat"
+		mkfs_cmd=true
 		;;
 	btrfs)
 		mkfs_cmd="$MKFS_BTRFS_PROG"
