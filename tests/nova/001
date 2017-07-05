@@ -55,12 +55,17 @@ rm -f $seqres.full
 _scratch_mkfs >>$seqres.full 2>&1
 _scratch_mount
 
+
+#SCRATCH_MNT=/tmp
 the_file=$SCRATCH_MNT/foo1
 small_blocks="1 2 42 1234"
 big_blocks="4096 4196 47009 $[1024*1024] $[4*4096+38]"
 
 function go() {
-    $XFS_IO_PROG -f -c "pwrite -b $bs 0 $[bs*count]" $SCRATCH_MNT/foo1 | _filter_xfs_io
+    $XFS_IO_PROG -f -c "pwrite -b $bs 0 $[bs*count]" $the_file | _filter_xfs_io
+    du -b $the_file | _filter_scratch
+    du -k $the_file | _filter_scratch
+    stat $the_file -c %i > /proc/fs/NOVA/${SCRATCH_DEV##/dev/}/gc # force gc
     du -b $the_file | _filter_scratch
     du -k $the_file | _filter_scratch
 }
@@ -78,6 +83,6 @@ for bs in  $big_blocks; do
     done;
 done
 
+
 status=0
 exit 
-
