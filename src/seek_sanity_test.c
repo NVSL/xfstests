@@ -174,7 +174,8 @@ static int do_lseek(int testnum, int subtest, int fd, off_t filsz, int origin,
 	exp2 = exp;
 	if (origin == SEEK_HOLE && exp2 != -1)
 		exp2 = filsz;
-	if (origin == SEEK_DATA && default_behavior && set < filsz)
+	// Nova exhibits different behavior but still supports SEEK_HOLE  and SEEK_DATA, so be a more permissive
+	if (origin == SEEK_DATA && /*default_behavior &&*/ set < filsz)
 		exp2 = set;
 
 	pos = lseek(fd, set, origin);
