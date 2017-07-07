@@ -920,16 +920,16 @@ static int test_basic_support(void)
 	/* try to discover the actual alloc size */
 	while (pos == 0 && offset < alloc_size) {
 		offset <<= 1;
-		ftruncate(fd, 0);
-		pwrite(fd, "a", 1, offset);
+		ret = ftruncate(fd, 0);
+		ret = pwrite(fd, "a", 1, offset);
 		pos = lseek(fd, 0, SEEK_DATA);
 	}
 
 	/* bisect */
 	shift = offset >> 2;
 	while (shift && offset < alloc_size) {
-		ftruncate(fd, 0);
-		pwrite(fd, "a", 1, offset);
+	        ret = ftruncate(fd, 0);
+		ret = pwrite(fd, "a", 1, offset);
 		pos = lseek(fd, 0, SEEK_DATA);
 		offset += pos ? -shift : shift;
 		shift >>= 1;
@@ -945,7 +945,7 @@ static int test_basic_support(void)
 		goto out;
 	}
 
-	ftruncate(fd, 0);
+	ret = ftruncate(fd, 0);
 	bufsz = alloc_size * 2;
 	filsz = bufsz * 2;
 
