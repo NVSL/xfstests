@@ -104,6 +104,7 @@ du -h $SCRATCH_MNT/foo3 | _filter_scratch
 echo "Space used by file foo4:"
 du -h $SCRATCH_MNT/foo4 | _filter_scratch
 
+
 sync
 
 # We expect the same file sizes reported by 'du' after writeback finishes.

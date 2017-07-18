@@ -1,0 +1,187 @@
+QA output created by 001
+wrote 1/1 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+1	SCRATCH_MNT/foo1
+4	SCRATCH_MNT/foo1
+1	SCRATCH_MNT/foo1
+4	SCRATCH_MNT/foo1
+wrote 4/4 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+4	SCRATCH_MNT/foo1
+4	SCRATCH_MNT/foo1
+4	SCRATCH_MNT/foo1
+4	SCRATCH_MNT/foo1
+wrote 127/127 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+127	SCRATCH_MNT/foo1
+4	SCRATCH_MNT/foo1
+127	SCRATCH_MNT/foo1
+4	SCRATCH_MNT/foo1
+wrote 4222/4222 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+4222	SCRATCH_MNT/foo1
+8	SCRATCH_MNT/foo1
+4222	SCRATCH_MNT/foo1
+8	SCRATCH_MNT/foo1
+wrote 2/2 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+4222	SCRATCH_MNT/foo1
+8	SCRATCH_MNT/foo1
+4222	SCRATCH_MNT/foo1
+8	SCRATCH_MNT/foo1
+wrote 8/8 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+4222	SCRATCH_MNT/foo1
+8	SCRATCH_MNT/foo1
+4222	SCRATCH_MNT/foo1
+8	SCRATCH_MNT/foo1
+wrote 254/254 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+4222	SCRATCH_MNT/foo1
+8	SCRATCH_MNT/foo1
+4222	SCRATCH_MNT/foo1
+8	SCRATCH_MNT/foo1
+wrote 8444/8444 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+8444	SCRATCH_MNT/foo1
+12	SCRATCH_MNT/foo1
+8444	SCRATCH_MNT/foo1
+12	SCRATCH_MNT/foo1
+wrote 42/42 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+8444	SCRATCH_MNT/foo1
+12	SCRATCH_MNT/foo1
+8444	SCRATCH_MNT/foo1
+12	SCRATCH_MNT/foo1
+wrote 168/168 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+8444	SCRATCH_MNT/foo1
+12	SCRATCH_MNT/foo1
+8444	SCRATCH_MNT/foo1
+12	SCRATCH_MNT/foo1
+wrote 5334/5334 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+8444	SCRATCH_MNT/foo1
+12	SCRATCH_MNT/foo1
+8444	SCRATCH_MNT/foo1
+12	SCRATCH_MNT/foo1
+wrote 177324/177324 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+177324	SCRATCH_MNT/foo1
+176	SCRATCH_MNT/foo1
+177324	SCRATCH_MNT/foo1
+176	SCRATCH_MNT/foo1
+wrote 1234/1234 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+177324	SCRATCH_MNT/foo1
+176	SCRATCH_MNT/foo1
+177324	SCRATCH_MNT/foo1
+176	SCRATCH_MNT/foo1
+wrote 4936/4936 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+177324	SCRATCH_MNT/foo1
+176	SCRATCH_MNT/foo1
+177324	SCRATCH_MNT/foo1
+176	SCRATCH_MNT/foo1
+wrote 156718/156718 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+177324	SCRATCH_MNT/foo1
+176	SCRATCH_MNT/foo1
+177324	SCRATCH_MNT/foo1
+176	SCRATCH_MNT/foo1
+wrote 5209948/5209948 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 4096/4096 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 16384/16384 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 65536/65536 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 4196/4196 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 16784/16784 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 67136/67136 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 47009/47009 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 188036/188036 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 752144/752144 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 1048576/1048576 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 4194304/4194304 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+5209948	SCRATCH_MNT/foo1
+5088	SCRATCH_MNT/foo1
+wrote 16777216/16777216 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+16777216	SCRATCH_MNT/foo1
+16384	SCRATCH_MNT/foo1
+16777216	SCRATCH_MNT/foo1
+16384	SCRATCH_MNT/foo1
+wrote 16422/16422 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+16777216	SCRATCH_MNT/foo1
+16384	SCRATCH_MNT/foo1
+16777216	SCRATCH_MNT/foo1
+16384	SCRATCH_MNT/foo1
+wrote 65688/65688 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+16777216	SCRATCH_MNT/foo1
+16384	SCRATCH_MNT/foo1
+16777216	SCRATCH_MNT/foo1
+16384	SCRATCH_MNT/foo1
+wrote 262752/262752 bytes at offset 0
+XXX Bytes, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
+16777216	SCRATCH_MNT/foo1
+16384	SCRATCH_MNT/foo1
+16777216	SCRATCH_MNT/foo1
+16384	SCRATCH_MNT/foo1

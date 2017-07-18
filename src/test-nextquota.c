@@ -41,9 +41,13 @@
 #ifndef Q_GETNEXTQUOTA
 #define Q_GETNEXTQUOTA 0x800009        /* get disk limits and usage >= ID */
 #endif
+//<<<<<<< HEAD
+//struct nextdqblk
+//=======
 
 /* glibc 2.24 defines Q_GETNEXTQUOTA but not struct nextdqblk. */
 struct test_nextdqblk
+//>>>>>>> master
   {
     u_int64_t dqb_bhardlimit;	/* absolute limit on disk quota blocks alloc */
     u_int64_t dqb_bsoftlimit;	/* preferred limit on disk quota blocks */

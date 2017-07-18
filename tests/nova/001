@@ -1,13 +1,14 @@
 #! /bin/bash
-# FSQA Test No. 344
+# FS QA Test No. nova/001
 #
-# Test races between mmap from racing threads when pages are prefaulted,
-# Test races between mmap and buffered writes when pages are prefaulted.
+# Check that file size accounting only include file data pages and not also log pages.
 #
 #-----------------------------------------------------------------------
 #
-# Copyright (C) 2016 SUSE Linux Products GmbH. All Rights Reserved.
-# Author: Jan Kara <jack@suse.cz>
+# Copyright (C) 2017 SUSE Linux Products GmbH. All Rights Reserved.
+# Author: Filipe Manana <fdmanana@suse.com>
+# Copyright 2015-2016 Regents of the University of California,
+# UCSD Non-Volatile Systems Lab, Steven Swanson <swanson@cs.ucsd.edu>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -27,6 +28,7 @@
 seq=`basename $0`
 seqres=$RESULT_DIR/$seq
 echo "QA output created by $seq"
+
 tmp=/tmp/$$
 status=1	# failure is the default!
 trap "_cleanup; exit \$status" 0 1 2 3 15
@@ -37,24 +39,50 @@ _cleanup()
 	rm -f $tmp.*
 }
 
-# get standard environment and checks
+# get standard environment, filters and checks
 . ./common/rc
+. ./common/filter
 
 # real QA test starts here
-_supported_fs generic
+_supported_fs NOVA
 _supported_os Linux
 _require_scratch
-_require_test_program "holetest"
+_require_xfs_io_command "falloc" "-k"
+_require_odirect
 
 rm -f $seqres.full
 
 _scratch_mkfs >>$seqres.full 2>&1
 _scratch_mount
 
-src/holetest -f -r $SCRATCH_MNT/testfile 16
-src/holetest -f -r $SCRATCH_MNT/testfile 256
-src/holetest -f -r -w $SCRATCH_MNT/testfile 16
-src/holetest -f -r -w $SCRATCH_MNT/testfile 256
+
+#SCRATCH_MNT=/tmp
+the_file=$SCRATCH_MNT/foo1
+small_blocks="1 2 42 1234"
+big_blocks="4096 4196 47009 $[1024*1024] $[4*4096+38]"
+
+function go() {
+    $XFS_IO_PROG -f -c "pwrite -b $bs 0 $[bs*count]" $the_file | _filter_xfs_io
+    du -b $the_file | _filter_scratch
+    du -k $the_file | _filter_scratch
+    stat $the_file -c %i > /proc/fs/NOVA/${SCRATCH_DEV##/dev/}/gc # force gc
+    du -b $the_file | _filter_scratch
+    du -k $the_file | _filter_scratch
+}
+
+for bs in  $small_blocks; do
+    for count in 1 4 127 4222; do
+	go
+    done;
+done
+
+
+for bs in  $big_blocks; do
+    for count in 1 4 16; do
+	go
+    done;
+done
+
 
 status=0
-exit
+exit 

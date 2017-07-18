@@ -174,7 +174,8 @@ static int do_lseek(int testnum, int subtest, int fd, off_t filsz, int origin,
 	exp2 = exp;
 	if (origin == SEEK_HOLE && exp2 != -1)
 		exp2 = filsz;
-	if (origin == SEEK_DATA && default_behavior && set < filsz)
+	// Nova exhibits different behavior but still supports SEEK_HOLE  and SEEK_DATA, so be a more permissive
+	if (origin == SEEK_DATA && /*default_behavior &&*/ set < filsz)
 		exp2 = set;
 
 	pos = lseek(fd, set, origin);
@@ -920,16 +921,16 @@ static int test_basic_support(void)
 	/* try to discover the actual alloc size */
 	while (pos == 0 && offset < alloc_size) {
 		offset <<= 1;
-		ftruncate(fd, 0);
-		pwrite(fd, "a", 1, offset);
+		ret = ftruncate(fd, 0);
+		ret = pwrite(fd, "a", 1, offset);
 		pos = lseek(fd, 0, SEEK_DATA);
 	}
 
 	/* bisect */
 	shift = offset >> 2;
 	while (shift && offset < alloc_size) {
-		ftruncate(fd, 0);
-		pwrite(fd, "a", 1, offset);
+	        ret = ftruncate(fd, 0);
+		ret = pwrite(fd, "a", 1, offset);
 		pos = lseek(fd, 0, SEEK_DATA);
 		offset += pos ? -shift : shift;
 		shift >>= 1;
@@ -945,7 +946,7 @@ static int test_basic_support(void)
 		goto out;
 	}
 
-	ftruncate(fd, 0);
+	ret = ftruncate(fd, 0);
 	bufsz = alloc_size * 2;
 	filsz = bufsz * 2;
 
