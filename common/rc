@@ -593,6 +593,7 @@ _scratch_do_mkfs()
 
 	# output stored mkfs output, filtering unnecessary output from stderr
 	cat $tmp.mkfsstd
+	echo "cat $tmp.mkfserr | $mkfs_filter" 
 	eval "cat $tmp.mkfserr | $mkfs_filter" >&2
 
 	rm -f $tmp*
@@ -838,6 +839,7 @@ _scratch_mkfs()
 		;;
         NOVA)
 		_scratch_cleanup_files
+		mkfs_filter="cat"
 		;;
         pmfs)
 		_scratch_cleanup_files
