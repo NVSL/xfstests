@@ -95,13 +95,13 @@
 090 metadata auto quick
 091 rw auto quick
 092 auto quick prealloc
-093 attr cap udf auto
+093 attr cap auto
 094 auto quick prealloc
 095 auto rw stress
 096 auto prealloc quick zero
-097 udf auto
+097 attr auto quick
 098 auto quick metadata
-099 udf auto
+099 acl auto quick
 100 udf auto
 101 auto quick metadata
 102 auto rw
@@ -447,3 +447,8 @@
 442 blockdev
 443 auto quick rw
 444 auto quick acl
+445 auto quick rw
+446 auto quick rw dangerous
+447 auto quick clone
+448 auto quick rw
+449 auto quick acl enospc

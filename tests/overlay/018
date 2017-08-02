@@ -10,7 +10,7 @@
 #
 #-----------------------------------------------------------------------
 #
-# Copyright (C) 2016 CTERA Networks. All Rights Reserved.
+# Copyright (C) 2016-2017 CTERA Networks. All Rights Reserved.
 # Author: Amir Goldstein <amir73il@gmail.com>
 #
 # This program is free software; you can redistribute it and/or
@@ -49,6 +49,7 @@ _cleanup()
 _supported_fs overlay
 _supported_os Linux
 _require_scratch
+_require_scratch_feature index
 
 rm -f $seqres.full
 
@@ -57,33 +58,70 @@ _scratch_mkfs >>$seqres.full 2>&1
 # Create 2 hardlinked files in lower
 lowerdir=$OVL_BASE_SCRATCH_MNT/$OVL_LOWER
 mkdir -p $lowerdir
-echo "patient zero" >> $lowerdir/foo
+echo "zero" >> $lowerdir/foo
 ln $lowerdir/foo $lowerdir/bar
 
 
-_scratch_mount
+# Record inode numbers in format <ino> <nlink>
+function record_ino_nlink()
+{
+	ls -li $FILES | awk '{ print $1, $3 }' > $1
+}
+
+# Check inode numbers match recorded inode numbers
+function check_ino_nlink()
+{
+	before=$1
+	after=$2
+
+	record_ino_nlink $after
+
+	# Test constant stat(2) st_ino/st_nlink -
+	#   Compare before..after - expect silence
+	# We use diff -u so out.bad will tell us which stage failed
+	diff -u $before $after
+}
+
+# Enable overlay index feature to prevent breaking hardlinks on copy up
+_scratch_mount -o index=on
 
 
-rm -f $tmp.before $tmp.after
+rm -f $tmp.*
 
 foo=$SCRATCH_MNT/foo
 bar=$SCRATCH_MNT/bar
 
-# Record inode number and nlink before copy up
-ls -li $foo $bar | awk '{ print $1, $3 }' > $tmp.before
+FILES="$foo $bar"
+
+echo "== Before copy up =="
+cat $FILES
+record_ino_nlink $tmp.before
 
 # Modify content of one of the hardlinks
-echo "mutated" >> $foo
+# Intentionally modify the last hardlink in $FILES, so after mount cycle
+# when reading the first file in $FILES, last file won't be in inode/dcache
+echo "one" >> $bar
 
-# Record inode number and nlink after copy up
-ls -li $foo $bar | awk '{ print $1, $3 }' > $tmp.after
+echo "== After write one =="
+cat $FILES
+check_ino_nlink $tmp.before $tmp.after_one
 
-# Compare ino/nlink before..after - expect silence
-diff $tmp.before $tmp.after
+# Verify that the hardlinks survive a mount cycle
+_scratch_cycle_mount index=on
 
-# Compare content of files - expect silence
-diff $foo $bar
+echo "== After mount cycle =="
+cat $FILES
+check_ino_nlink $tmp.after_one $tmp.after_cycle
 
-echo "Silence is golden"
+# Drop caches to get the copied up hardlink out of cache
+echo 3 > /proc/sys/vm/drop_caches
+
+# Modify content of the other hardlink
+echo "two" >> $foo
+
+echo "== After write two =="
+cat $FILES
+check_ino_nlink $tmp.after_one $tmp.after_two
+
 status=0
 exit

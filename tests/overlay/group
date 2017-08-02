@@ -20,13 +20,13 @@
 015 auto quick whiteout
 016 auto quick copyup
 017 auto quick copyup
-018 auto quick copyup
+018 auto quick copyup hardlink
 019 auto stress
 020 auto quick copyup perms
 021 auto quick copyup
-022 auto quick
+022 auto quick mount
 023 auto quick attr
-024 auto quick
+024 auto quick mount
 025 auto quick attr
 026 auto attr quick
 027 auto quick perms
@@ -34,3 +34,8 @@
 029 auto quick
 030 auto quick perms
 031 auto quick whiteout
+032 auto quick copyup hardlink
+033 auto quick copyup hardlink
+034 auto quick copyup hardlink
+035 auto quick mount
+036 auto quick mount

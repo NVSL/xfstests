@@ -37,6 +37,7 @@
 
 static blksize_t alloc_size;
 int default_behavior = 0;
+int unwritten_extents = 0;
 char *base_file_path;
 
 static void get_file_system(int fd)
@@ -51,19 +52,51 @@ static void get_file_system(int fd)
 
 static int get_io_sizes(int fd)
 {
-       struct stat buf;
-       int ret;
+	off_t pos = 0, offset = 1;
+	struct stat buf;
+	int shift, ret;
 
-       ret = fstat(fd, &buf);
-       if (ret)
-               fprintf(stderr, "  ERROR %d: Failed to find io blocksize\n",
-                       errno);
+	ret = fstat(fd, &buf);
+	if (ret) {
+		fprintf(stderr, "  ERROR %d: Failed to find io blocksize\n",
+			errno);
+		return ret;
+	}
 
-       /* st_blksize is typically also the allocation size */
-       alloc_size = buf.st_blksize;
-       fprintf(stdout, "Allocation size: %ld\n", alloc_size);
+	/* st_blksize is typically also the allocation size */
+	alloc_size = buf.st_blksize;
 
-       return ret;
+	/* try to discover the actual alloc size */
+	while (pos == 0 && offset < alloc_size) {
+		offset <<= 1;
+		ftruncate(fd, 0);
+		pwrite(fd, "a", 1, offset);
+		pos = lseek(fd, 0, SEEK_DATA);
+		if (pos == -1)
+			goto fail;
+	}
+
+	/* bisect */
+	shift = offset >> 2;
+	while (shift && offset < alloc_size) {
+		ftruncate(fd, 0);
+		pwrite(fd, "a", 1, offset);
+		pos = lseek(fd, 0, SEEK_DATA);
+		if (pos == -1)
+			goto fail;
+		offset += pos ? -shift : shift;
+		shift >>= 1;
+	}
+	if (!shift)
+		offset += pos ? 0 : 1;
+	alloc_size = offset;
+	fprintf(stdout, "Allocation size: %ld\n", alloc_size);
+	return 0;
+
+fail:
+	fprintf(stderr, "Kernel does not support llseek(2) extension "
+		"SEEK_DATA. Aborting.\n");
+	return -1;
 }
 
 #define do_free(x)     do { if(x) free(x); } while(0);
@@ -96,13 +129,9 @@ static int do_fallocate(int fd, off_t offset, off_t length, int mode)
 	int ret;
 
 	ret = fallocate(fd, mode, offset, length);
-	if (ret) {
-		/* Don't warn about a filesystem w/o fallocate support */
-		if (errno == EOPNOTSUPP)
-			return ret;
+	if (ret)
 		fprintf(stderr, "  ERROR %d: Failed to preallocate "
 			"space to %ld bytes\n", errno, (long) length);
-	}
 
 	return ret;
 }
@@ -246,6 +275,84 @@ out:
 	return ret;
 }
 
+/* Make sure we get ENXIO if we pass in a negative offset. */
+static int test18(int fd, int testnum)
+{
+	int ret = 0;
+
+	/* file size doesn't matter in this test, set to 0 */
+	ret += do_lseek(testnum, 1, fd, 0, SEEK_HOLE, -1, -1);
+	ret += do_lseek(testnum, 2, fd, 0, SEEK_DATA, -1, -1);
+
+	return ret;
+}
+
+static int test17(int fd, int testnum)
+{
+	char *buf = NULL;
+	int pagesz = sysconf(_SC_PAGE_SIZE);
+	int bufsz, filsz;
+	int ret = 0;
+
+	if (!unwritten_extents) {
+		fprintf(stdout, "Test skipped as fs doesn't support unwritten extents.\n");
+		goto out;
+	}
+
+	if (pagesz < 4 * alloc_size) {
+		fprintf(stdout, "Test skipped as page size (%d) is less than "
+			"four times allocation size (%d).\n",
+			pagesz, (int)alloc_size);
+		goto out;
+	}
+	bufsz = alloc_size;
+	filsz = 3 * bufsz;
+
+	buf = do_malloc(bufsz);
+	if (!buf) {
+		ret = -1;
+		goto out;
+	}
+	memset(buf, 'a', bufsz);
+
+	ret = do_fallocate(fd, 0, filsz, 0);
+	if (ret < 0)
+		goto out;
+
+	ret = do_pwrite(fd, buf, bufsz, 0);
+	if (ret)
+		goto out;
+
+	ret = do_pwrite(fd, buf, bufsz, 2 * bufsz);
+	if (ret)
+		goto out;
+
+	ret += do_lseek(testnum,  1, fd, filsz, SEEK_DATA, 0, 0);
+	ret += do_lseek(testnum,  2, fd, filsz, SEEK_HOLE, 0, bufsz);
+	ret += do_lseek(testnum,  3, fd, filsz, SEEK_DATA, 1, 1);
+	ret += do_lseek(testnum,  4, fd, filsz, SEEK_HOLE, 1, bufsz);
+	ret += do_lseek(testnum,  5, fd, filsz, SEEK_DATA, bufsz, 2 * bufsz);
+	ret += do_lseek(testnum,  6, fd, filsz, SEEK_HOLE, bufsz, bufsz);
+	ret += do_lseek(testnum,  7, fd, filsz, SEEK_DATA, bufsz + 1, 2 * bufsz);
+	ret += do_lseek(testnum,  8, fd, filsz, SEEK_HOLE, bufsz + 1, bufsz + 1);
+	ret += do_lseek(testnum,  9, fd, filsz, SEEK_DATA, 2 * bufsz, 2 * bufsz);
+	ret += do_lseek(testnum, 10, fd, filsz, SEEK_HOLE, 2 * bufsz, 3 * bufsz);
+	ret += do_lseek(testnum, 11, fd, filsz, SEEK_DATA, 2 * bufsz + 1, 2 * bufsz + 1);
+	ret += do_lseek(testnum, 12, fd, filsz, SEEK_HOLE, 2 * bufsz + 1, 3 * bufsz);
+
+	filsz += bufsz;
+	ret += do_fallocate(fd, 0, filsz, 0);
+
+	ret += do_lseek(testnum, 13, fd, filsz, SEEK_DATA, 3 * bufsz, -1);
+	ret += do_lseek(testnum, 14, fd, filsz, SEEK_HOLE, 3 * bufsz, 3 * bufsz);
+	ret += do_lseek(testnum, 15, fd, filsz, SEEK_DATA, 3 * bufsz + 1, -1);
+	ret += do_lseek(testnum, 16, fd, filsz, SEEK_HOLE, 3 * bufsz + 1, 3 * bufsz + 1);
+
+out:
+	do_free(buf);
+	return ret;
+}
+
 /*
  * test file with unwritten extents, having non-contiguous dirty pages in
  * the unwritten extent.
@@ -257,6 +364,11 @@ static int test16(int fd, int testnum)
 	int bufsz = sysconf(_SC_PAGE_SIZE);
 	int filsz = 4 << 20;
 
+	if (!unwritten_extents) {
+		fprintf(stdout, "Test skipped as fs doesn't support unwritten extents.\n");
+		goto out;
+	}
+
 	/* HOLE - unwritten DATA in dirty page */
 	/* Each unit is bufsz */
 	buf = do_malloc(bufsz);
@@ -266,14 +378,8 @@ static int test16(int fd, int testnum)
 
 	/* preallocate 4M space to file */
 	ret = do_fallocate(fd, 0, filsz, 0);
-	if (ret < 0) {
-		/* Report success if fs doesn't support fallocate */
-		if (errno == EOPNOTSUPP) {
-			fprintf(stdout, "Test skipped as fs doesn't support fallocate.\n");
-			ret = 0;
-		}
+	if (ret < 0)
 		goto out;
-	}
 
 	ret = do_pwrite(fd, buf, bufsz, 0);
 	if (ret)
@@ -308,6 +414,11 @@ static int test15(int fd, int testnum)
 	int bufsz = sysconf(_SC_PAGE_SIZE);
 	int filsz = 4 << 20;
 
+	if (!unwritten_extents) {
+		fprintf(stdout, "Test skipped as fs doesn't support unwritten extents.\n");
+		goto out;
+	}
+
 	/* HOLE - unwritten DATA in dirty page */
 	/* Each unit is bufsz */
 	buf = do_malloc(bufsz);
@@ -317,14 +428,8 @@ static int test15(int fd, int testnum)
 
 	/* preallocate 4M space to file */
 	ret = do_fallocate(fd, 0, filsz, 0);
-	if (ret < 0) {
-		/* Report success if fs doesn't support fallocate */
-		if (errno == EOPNOTSUPP) {
-			fprintf(stdout, "Test skipped as fs doesn't support fallocate.\n");
-			ret = 0;
-		}
+	if (ret < 0)
 		goto out;
-	}
 
 	ret = do_pwrite(fd, buf, bufsz, 0);
 	if (ret)
@@ -361,6 +466,11 @@ static int test14(int fd, int testnum)
 	int bufsz = sysconf(_SC_PAGE_SIZE) * 14;
 	int filsz = 4 << 20;
 
+	if (!unwritten_extents) {
+		fprintf(stdout, "Test skipped as fs doesn't support unwritten extents.\n");
+		goto out;
+	}
+
 	/* HOLE - unwritten DATA in dirty page */
 	/* Each unit is bufsz */
 	buf = do_malloc(bufsz);
@@ -370,14 +480,8 @@ static int test14(int fd, int testnum)
 
 	/* preallocate 4M space to file */
 	ret = do_fallocate(fd, 0, filsz, 0);
-	if (ret < 0) {
-		/* Report success if fs doesn't support fallocate */
-		if (errno == EOPNOTSUPP) {
-			fprintf(stdout, "Test skipped as fs doesn't support fallocate.\n");
-			ret = 0;
-		}
+	if (ret < 0)
 		goto out;
-	}
 
 	ret = do_pwrite(fd, buf, bufsz, 0);
 	if (ret)
@@ -411,6 +515,11 @@ static int test13(int fd, int testnum)
 	int bufsz = sysconf(_SC_PAGE_SIZE) * 14;
 	int filsz = 4 << 20;
 
+	if (!unwritten_extents) {
+		fprintf(stdout, "Test skipped as fs doesn't support unwritten extents.\n");
+		goto out;
+	}
+
 	/* HOLE - unwritten DATA in dirty page */
 	/* Each unit is bufsz */
 	buf = do_malloc(bufsz);
@@ -420,14 +529,8 @@ static int test13(int fd, int testnum)
 
 	/* preallocate 4M space to file */
 	ret = do_fallocate(fd, 0, filsz, 0);
-	if (ret < 0) {
-		/* Report success if fs doesn't support fallocate */
-		if (errno == EOPNOTSUPP) {
-			fprintf(stdout, "Test skipped as fs doesn't support fallocate.\n");
-			ret = 0;
-		}
+	if (ret < 0)
 		goto out;
-	}
 
 	ret = do_pwrite(fd, buf, bufsz, 0);
 	if (ret)
@@ -481,6 +584,11 @@ static int test09(int fd, int testnum)
 	int bufsz = alloc_size;
 	int filsz = bufsz * 100 + bufsz;
 
+	if (!unwritten_extents) {
+		fprintf(stdout, "Test skipped as fs doesn't support unwritten extents.\n");
+		goto out;
+	}
+
 	/*
 	 * HOLE - unwritten DATA in dirty page - HOLE -
 	 * unwritten DATA in writeback page
@@ -494,14 +602,8 @@ static int test09(int fd, int testnum)
 
 	/* preallocate 8M space to file */
 	ret = do_fallocate(fd, 0, filsz, 0);
-	if (ret < 0) {
-		/* Report success if fs doesn't support fallocate */
-		if (errno == EOPNOTSUPP) {
-			fprintf(stdout, "Test skipped as fs doesn't support fallocate.\n");
-			ret = 0;
-		}
+	if (ret < 0)
 		goto out;
-	}
 
 	ret = do_pwrite(fd, buf, bufsz, bufsz * 10);
 	if (!ret) {
@@ -537,6 +639,11 @@ static int test08(int fd, int testnum)
 	int bufsz = alloc_size;
 	int filsz = bufsz * 10 + bufsz;
 
+	if (!unwritten_extents) {
+		fprintf(stdout, "Test skipped as fs doesn't support unwritten extents.\n");
+		goto out;
+	}
+
 	/* HOLE - unwritten DATA in writeback page */
 	/* Each unit is bufsz */
 	buf = do_malloc(bufsz);
@@ -546,14 +653,8 @@ static int test08(int fd, int testnum)
 
 	/* preallocate 4M space to file */
 	ret = do_fallocate(fd, 0, filsz, 0);
-	if (ret < 0) {
-		/* Report success if fs doesn't support fallocate */
-		if (errno == EOPNOTSUPP) {
-			fprintf(stdout, "Test skipped as fs doesn't support fallocate.\n");
-			ret = 0;
-		}
+	if (ret < 0)
 		goto out;
-	}
 
 	ret = do_pwrite(fd, buf, bufsz, bufsz * 10);
 	if (ret)
@@ -586,6 +687,11 @@ static int test07(int fd, int testnum)
 	int bufsz = alloc_size;
 	int filsz = bufsz * 10 + bufsz;
 
+	if (!unwritten_extents) {
+		fprintf(stdout, "Test skipped as fs doesn't support unwritten extents.\n");
+		goto out;
+	}
+
 	/* HOLE - unwritten DATA in dirty page */
 	/* Each unit is bufsz */
 	buf = do_malloc(bufsz);
@@ -595,14 +701,8 @@ static int test07(int fd, int testnum)
 
 	/* preallocate 4M space to file */
 	ret = do_fallocate(fd, 0, filsz, 0);
-	if (ret < 0) {
-		/* Report success if fs doesn't support fallocate */
-		if (errno == EOPNOTSUPP) {
-			fprintf(stdout, "Test skipped as fs doesn't support fallocate.\n");
-			ret = 0;
-		}
+	if (ret < 0)
 		goto out;
-	}
 
 	ret = do_pwrite(fd, buf, bufsz, bufsz * 10);
 	if (ret)
@@ -881,6 +981,8 @@ struct testrec seek_tests[] = {
        { 14, test14, "Test file with unwritten extents, small hole after pagevec dirty pages" },
        { 15, test15, "Test file with unwritten extents, page after unwritten extent" },
        { 16, test16, "Test file with unwritten extents, non-contiguous dirty pages" },
+       { 17, test17, "Test file with unwritten extents, data-hole-data inside page" },
+       { 18, test18, "Test file with negative SEEK_{HOLE,DATA} offsets" },
 };
 
 static int run_test(struct testrec *tr)
@@ -903,8 +1005,8 @@ static int run_test(struct testrec *tr)
 
 static int test_basic_support(void)
 {
-	int ret = -1, fd, shift;
-	off_t pos = 0, offset = 1;
+	int ret = -1, fd;
+	off_t pos;
 	char *buf = NULL;
 	int bufsz, filsz;
 
@@ -918,35 +1020,10 @@ static int test_basic_support(void)
 	if (ret)
 		goto out;
 
-	/* try to discover the actual alloc size */
-	while (pos == 0 && offset < alloc_size) {
-		offset <<= 1;
-		ret = ftruncate(fd, 0);
-		ret = pwrite(fd, "a", 1, offset);
-		pos = lseek(fd, 0, SEEK_DATA);
-	}
-
-	/* bisect */
-	shift = offset >> 2;
-	while (shift && offset < alloc_size) {
-	        ret = ftruncate(fd, 0);
-		ret = pwrite(fd, "a", 1, offset);
-		pos = lseek(fd, 0, SEEK_DATA);
-		offset += pos ? -shift : shift;
-		shift >>= 1;
-	}
-	if (!shift)
-		offset += pos ? 0 : 1;
-	alloc_size = offset;
-
-	if (pos == -1) {
-		fprintf(stderr, "Kernel does not support llseek(2) extension "
-			"SEEK_DATA. Aborting.\n");
-		ret = -1;
-		goto out;
-	}
-
 	ret = ftruncate(fd, 0);
+	if (ret)
+		goto out;
+
 	bufsz = alloc_size * 2;
 	filsz = bufsz * 2;
 
@@ -978,6 +1055,25 @@ static int test_basic_support(void)
 		default_behavior = 1;
 		fprintf(stderr, "File system supports the default behavior.\n");
 	}
+
+	ftruncate(fd, 0);
+	if (fallocate(fd, 0, 0, alloc_size) == -1) {
+		if (errno == EOPNOTSUPP)
+			fprintf(stderr, "File system does not support fallocate.");
+		else {
+			fprintf(stderr, "ERROR %d: Failed to preallocate "
+				"space to %ld bytes. Aborting.\n", errno, (long) alloc_size);
+			ret = -1;
+		}
+		goto out;
+	}
+
+	pos = lseek(fd, 0, SEEK_DATA);
+	if (pos == 0) {
+		fprintf(stderr, "File system does not support unwritten extents.\n");
+		goto out;
+	}
+	unwritten_extents = 1;
 
 	printf("\n");
 

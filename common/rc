@@ -238,7 +238,7 @@ _scratch_options()
 
     case $type in
     mkfs)
-	[ "$HOSTOS" != "IRIX" ] && SCRATCH_OPTIONS="$SCRATCH_OPTIONS -f"
+	SCRATCH_OPTIONS="$SCRATCH_OPTIONS -f"
 	rt_opt="-r"
         log_opt="-l"
 	;;
@@ -287,14 +287,7 @@ _mount_ops_filter()
     [ $last_index -gt 0 ] && shift $last_index
     FS_ESCAPED=$1
     
-    # irix is fussy about how it is fed its mount options
-    # - multiple -o's are not allowed
-    # - no spaces between comma delimitered options
-    # the sed script replaces all -o's (except the first) with a comma
-    # not required for linux, but won't hurt
-    
-    echo $params | sed -e 's/[[:space:]]\+-o[[:space:]]*/UnIqUe/1; s/[[:space:]]\+-o[[:space:]]*/,/g; s/UnIqUe/ -o /1' \
-        | sed -e 's/dmapi/dmi/' \
+    echo $params | sed -e 's/dmapi/dmi/' \
         | $PERL_PROG -ne "s#mtpt=[^,|^\n|^\s]*#mtpt=$FS_ESCAPED\1\2#; print;"
 
 }
@@ -1032,8 +1025,11 @@ _scratch_mkfs_sized()
     xfs)
 	def_blksz=`echo $MKFS_OPTIONS|sed -rn 's/.*-b ?size= ?+([0-9]+).*/\1/p'`
 	;;
-    ext2|ext3|ext4|ext4dev|udf|btrfs|reiser4|ocfs2)
+    ext2|ext3|ext4|ext4dev|udf|btrfs|reiser4|ocfs2|reiserfs)
 	def_blksz=`echo $MKFS_OPTIONS| sed -rn 's/.*-b ?+([0-9]+).*/\1/p'`
+	;;
+    jfs)
+	def_blksz=4096
 	;;
     esac
 
@@ -1079,6 +1075,12 @@ _scratch_mkfs_sized()
 	local mixed_opt=
 	(( fssize <= 100 * 1024 * 1024 )) && mixed_opt='--mixed'
 	$MKFS_BTRFS_PROG $MKFS_OPTIONS $mixed_opt -b $fssize $SCRATCH_DEV
+	;;
+    jfs)
+	${MKFS_PROG}.$FSTYP $MKFS_OPTIONS $SCRATCH_DEV $blocks
+	;;
+    reiserfs)
+	${MKFS_PROG}.$FSTYP $MKFS_OPTIONS -b $blocksize $SCRATCH_DEV $blocks
 	;;
     reiser4)
 	# mkfs.resier4 requires size in KB as input for creating filesystem
@@ -1750,6 +1752,15 @@ _require_test()
     touch ${RESULT_DIR}/require_test
 }
 
+_has_logdev()
+{
+	local ret=0
+	[ -z "$SCRATCH_LOGDEV" -o ! -b "$SCRATCH_LOGDEV" ] && ret=1
+	[ "$USE_EXTERNAL" != yes ] && ret=1
+
+	return $ret
+}
+
 # this test needs a logdev
 #
 _require_logdev()
@@ -2128,12 +2139,7 @@ s,^\s*$,,;
 
 _user_do()
 {
-    if [ "$HOSTOS" == "IRIX" ]
-	then
-	echo $1 | /bin/bash "su $qa_user 2>&1" | _filter_user_do
-    else
 	echo $1 | su -s /bin/bash $qa_user 2>&1 | _filter_user_do
-    fi
 }
 
 _require_xfs_io_command()
@@ -2191,6 +2197,11 @@ _require_xfs_io_command()
 		echo $testio | egrep -q "invalid option" && \
 			_notrun "xfs_io $command support is missing"
 		;;
+	"scrub"|"repair")
+		testio=`$XFS_IO_PROG -x -c "$command dummy 0" $TEST_DIR 2>&1`
+		echo $testio | egrep -q "Inappropriate ioctl" && \
+			_notrun "xfs_io $command support is missing"
+		;;
 	"utimes" )
 		testio=`$XFS_IO_PROG -f -c "utimes" 0 0 0 0 $testfile 2>&1`
 		;;
@@ -2207,6 +2218,8 @@ _require_xfs_io_command()
 		_notrun "xfs_io $command failed (old kernel/wrong fs/bad args?)"
 	echo $testio | grep -q "foreign file active" && \
 		_notrun "xfs_io $command not supported on $FSTYP"
+	echo $testio | egrep -q "Function not implemented" && \
+		_notrun "xfs_io $command support is missing (missing syscall?)"
 
 	if [ -n "$param" -a $param_checked -eq 0 ]; then
 		$XFS_IO_PROG -c "help $command" | grep -q "^ $param --" || \
@@ -2294,16 +2307,31 @@ _require_fail_make_request()
  not found. Seems that CONFIG_FAIL_MAKE_REQUEST kernel config option not enabled"
 }
 
-#
+# Disable extent zeroing for ext4 on the given device
+_ext4_disable_extent_zeroout()
+{
+	local dev=${1:-$TEST_DEV}
+	local sdev=`_short_dev $dev`
+
+	[ -f /sys/fs/ext4/$sdev/extent_max_zeroout_kb ] && \
+		echo 0 >/sys/fs/ext4/$sdev/extent_max_zeroout_kb
+}
+
 # Check if the file system supports seek_data/hole
-#
 _require_seek_data_hole()
 {
-    testfile=$TEST_DIR/$$.seek
-    testseek=`$here/src/seek_sanity_test -t $testfile 2>&1`
-    rm -f $testfile &>/dev/null
-    echo $testseek | grep -q "Kernel does not support" && \
-        _notrun "File system does not support llseek(2) SEEK_DATA/HOLE"
+	local dev=${1:-$TEST_DEV}
+	local testfile=$TEST_DIR/$$.seek
+	local testseek=`$here/src/seek_sanity_test -t $testfile 2>&1`
+
+	rm -f $testfile &>/dev/null
+	echo $testseek | grep -q "Kernel does not support" && \
+		_notrun "File system does not support llseek(2) SEEK_DATA/HOLE"
+	# Disable extent zeroing for ext4 as that change where holes are
+	# created
+	if [ "$FSTYP" = "ext4" ]; then
+		_ext4_disable_extent_zeroout $dev
+	fi
 }
 
 _require_runas()
@@ -2698,9 +2726,7 @@ _full_platform_details()
 
 _get_os_name()
 {
-	if [ "`uname`" == "IRIX64" ] || [ "`uname`" == "IRIX" ]; then
-		echo 'irix'
-	elif [ "`uname`" == "Linux" ]; then
+	if [ "`uname`" == "Linux" ]; then
 		echo 'linux'
 	else
 		echo Unknown operating system: `uname`
@@ -3264,9 +3290,6 @@ run_check()
 
 _require_test_symlinks()
 {
-	# IRIX UDF does not support symlinks
-	[ "$HOSTOS" = "IRIX" -a "$FSTYP" = 'udf' ] && \
-		_notrun "Require symlinks support"
 	target=`mktemp -p $TEST_DIR`
 	link=`mktemp -p $TEST_DIR -u`
 	ln -s `basename $target` $link
@@ -3629,6 +3652,54 @@ _get_fs_sysfs_attr()
 
 	local dname=$(_short_dev $dev)
 	cat /sys/fs/${FSTYP}/${dname}/${attr}
+}
+
+# Print the value of a filesystem module parameter
+# at /sys/module/$FSTYP/parameters/$PARAM
+#
+# Usage example (FSTYP=overlay):
+#   _get_fs_module_param index
+_get_fs_module_param()
+{
+	cat /sys/module/${FSTYP}/parameters/${1} 2>/dev/null
+}
+
+# Generic test for specific filesystem feature.
+# Currently only implemented to test overlayfs features.
+_require_scratch_feature()
+{
+	local feature=$1
+
+	case "$FSTYP" in
+	overlay)
+		# overalyfs features (e.g. redirect_dir, index) are
+		# configurable from Kconfig (the build default), by module
+		# parameter (the system default) and per mount by mount
+		# option ${feature}=[on|off].
+		#
+		# If the module parameter does not exist then there is no
+		# point in checking the mount option.
+		local default=`_get_fs_module_param ${feature}`
+		[ "$default" = Y ] || [ "$default" = N ] || \
+			_notrun "feature '${feature}' not supported by ${FSTYP}"
+
+		_scratch_mkfs > /dev/null 2>&1
+		_scratch_mount -o ${feature}=on || \
+			_notrun "${FSTYP} feature '${feature}' cannot be enabled on ${SCRATCH_DEV}"
+		# Check options to be sure. For example, Overlayfs will fallback to
+		# index=off if underlying fs does not support file handles.
+		# Overlayfs only displays mount option if it differs from the default.
+		# Overlayfs may enable the feature, but fallback to read-only mount.
+		((( [ "$default" = N ] && _fs_options $SCRATCH_DEV | grep -q "${feature}=on" ) || \
+		  ( [ "$default" = Y ] && ! _fs_options $SCRATCH_DEV | grep -q "${feature}=off" )) && \
+		    touch $SCRATCH_MNT/foo 2>/dev/null ) || \
+		        _notrun "${FSTYP} feature '${feature}' cannot be enabled on ${SCRATCH_DEV}"
+		_scratch_unmount
+		;;
+	*)
+		_fail "Test for feature '${feature}' of ${FSTYP} is not implemented"
+		;;
+	esac
 }
 
 

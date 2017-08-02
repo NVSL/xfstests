@@ -47,15 +47,12 @@ trap "_cleanup; exit \$status" 0 1 2 3 15
 
 # real QA test starts here
 _supported_fs xfs
-_supported_os IRIX Linux
+_supported_os Linux
 
 # prelim
 rm -f $seqres.full $tmp.*
 _require_scratch
 _require_v2log 
-
-# link correct .out file
-_link_out_file_named $seqfull.op $(_get_os_name)
 
 echo "*** init FS"
 _scratch_unmount >/dev/null 2>&1
@@ -87,12 +84,6 @@ for s in sync nosync ; do
     do
 	if [ "$mkfs" = "#" ]; then 
 	    continue
-	fi
-	if [ "$HOSTOS" = "IRIX" ]; then 
-	    # don't have umount rec at start on IRIX
-	    # so we won't have to skip over it and get to 
-	    # another stripe boundary
-	    start=0
 	fi
 	echo "--- mkfs=$mkfs, mnt=$mnt, sync=$s ---"
 	export MOUNT_OPTIONS="-o $mnt"

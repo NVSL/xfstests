@@ -117,18 +117,6 @@ _acl_ls()
     _ls_l -n $* | awk '{ print $1, $3, $4, $NF }' | _acl_filter_id
 } 
 
-#
-_acl_list()
-{
-    _file1=$1
-
-    if [ $HOSTOS = "IRIX" ]; then
-	ls -dD $_file1 | _acl_filter_id
-    else 
-        chacl -l $_file1 | _acl_filter_id
-    fi
-}
-
 # create an ACL with n ACEs in it
 #
 _create_n_aces()
@@ -217,7 +205,7 @@ _require_attrs()
     # stored on disk.
     #
     touch $TEST_DIR/syscalltest
-    attr -s "user.xfstests" -V "attr" $TEST_DIR > $TEST_DIR/syscalltest.out 2>&1
+    attr -s "user.xfstests" -V "attr" $TEST_DIR/syscalltest > $TEST_DIR/syscalltest.out 2>&1
     cat $TEST_DIR/syscalltest.out >> $seqres.full
 
     if grep -q 'Function not implemented' $TEST_DIR/syscalltest.out; then

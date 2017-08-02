@@ -45,10 +45,7 @@ _report_filter () {
 
 # real QA test starts here
 _supported_fs xfs
-_supported_os Linux IRIX
-
-# link correct .out file
-_link_out_file
+_supported_os Linux
 
 _require_scratch
 _scratch_mkfs_xfs >/dev/null 2>&1
