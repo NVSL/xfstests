@@ -76,12 +76,15 @@ clean:  # if configure hasn't run, nothing to clean
 endif
 
 configure: configure.ac
+	libtoolize -cfi
+	aclocal -I m4
 	autoheader
 	autoconf
 
 include/builddefs include/config.h: configure
 	./configure \
-                --libexecdir=/usr/lib
+                --libexecdir=/usr/lib \
+                --exec_prefix=/var/lib
 
 aclocal.m4::
 	aclocal --acdir=`pwd`/m4 --output=$@
