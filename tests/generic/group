@@ -82,7 +82,7 @@
 077 acl attr auto enospc
 078 auto quick metadata
 079 acl attr ioctl metadata auto quick
-080 auto quick
+080 auto quick nova-fail
 081 auto quick
 082 auto quick quota
 083 rw auto enospc stress
@@ -217,7 +217,7 @@
 212 auto aio quick
 213 rw auto prealloc quick enospc
 214 rw auto prealloc quick
-215 auto metadata quick
+215 auto metadata quick nova-fail
 216 auto quick clone
 217 auto quick clone
 218 auto quick clone
@@ -426,12 +426,12 @@
 421 auto quick encrypt dangerous
 422 auto quick
 423 auto quick
-424 auto quick
+424 auto quick nova-fail
 425 auto quick attr
 426 auto quick exportfs
 427 auto quick aio rw
-428 auto quick
-429 auto encrypt
+428 auto quick nova-fail
+429 auto encrypt 
 430 auto quick copy
 431 auto quick copy
 432 auto quick copy
@@ -450,5 +450,5 @@
 445 auto quick rw
 446 auto quick rw dangerous
 447 auto quick clone
-448 auto quick rw
+448 auto quick rw nova-fail
 449 auto quick acl enospc
