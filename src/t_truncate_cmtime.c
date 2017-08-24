@@ -54,7 +54,7 @@ int do_test(const char *file, int is_ftrunc)
 	}
 
 	/* Test [f]truncate(2) down */
-	sleep(1);
+	sleep(2);
 	if (is_ftrunc) {
 		ret = ftruncate(fd, 0);
 		if (ret == -1) {
@@ -89,7 +89,7 @@ int do_test(const char *file, int is_ftrunc)
 	}
 
 	/* Test [f]truncate(2) up */
-	sleep(1);
+	sleep(2);
 	if (is_ftrunc) {
 		ret = ftruncate(fd, 123);
 		if (ret == -1) {
