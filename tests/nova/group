@@ -4,3 +4,4 @@
 # - comment line before each group is "new" description
 #
 001 check file size accounting
+002 check that mounted snapshots are read-only
