@@ -721,6 +721,10 @@ _test_mkfs()
     pvfs2)
 	# do nothing for pvfs2
 	;;
+    NOVA)
+	$MOUNT_PROG -t $FSTYP $TEST_DEV $TEST_DIR -o init
+	$UMOUNT_PROG $TEST_DIR
+	;;
     udf)
         $MKFS_UDF_PROG $MKFS_OPTIONS $* $TEST_DEV > /dev/null
 	;;
@@ -866,6 +870,11 @@ _scratch_mkfs()
 		mkfs_cmd="yes | $MKFS_PROG -t $FSTYP --"
 		mkfs_filter="grep -v -e ^mkfs\.ocfs2"
 		;;
+	NOVA)
+	    mkfs_cmd="$MOUNT_PROG -t $FSTYP $SCRATCH_DEV $SCRATCH_DIR -o init && $UMOUNT_PROG $TEST_DIR"
+	    mkfs_filter="cat"
+	    ;;
+
 	*)
 		mkfs_cmd="yes | $MKFS_PROG -t $FSTYP --"
 		mkfs_filter="cat"

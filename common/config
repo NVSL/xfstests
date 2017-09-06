@@ -86,7 +86,7 @@ export PWD=`pwd`
 export MALLOCLIB=${MALLOCLIB:=/usr/lib/libefence.a}
 export LOCAL_CONFIGURE_OPTIONS=${LOCAL_CONFIGURE_OPTIONS:=--enable-readline=yes}
 
-export RECREATE_TEST_DEV=false
+export RECREATE_TEST_DEV=true
 
 # $1 = prog to look for
 set_prog_path()

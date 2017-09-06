@@ -1,7 +1,7 @@
 #! /bin/bash
-# FS QA Test No. nova/002
+# FS QA Test No. nova/003
 #
-# Verify that mounted snapshots are read-only
+# Mount a file system while a snapshot has already been mounted.
 #
 #-----------------------------------------------------------------------
 #

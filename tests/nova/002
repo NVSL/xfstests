@@ -50,24 +50,20 @@ _require_test
 
 rm -f $seqres.full
 
-_scratch_mkfs >>$seqres.full 2>&1
-_test_mount
-
 touch $TEST_DIR/unchangable
-
 echo 1 > /proc/fs/NOVA/${TEST_DEV##/dev/}/create_snapshot
-umount $TEST_DIR
-mount -t NOVA $TEST_DEV $TEST_DIR -osnapshot=0 
+_test_unmount $TEST_DIR
+_test_mount -osnapshot=0 
 
-if touch $TEST_DIR/uncreatable; then
+if touch $TEST_DIR/uncreatable 2>/dev/null; then
     echo Created file on snapshot
 fi
 
-if echo changed | tee -a $TEST_DIR/unchangable; then
+if echo changed | tee -a $TEST_DIR/unchangable 2> /dev/null >/dev/null; then
     echo Modified read-only file
 fi
 
-umount $TEST_DIR
+#umount $TEST_DIR
 
 echo Silence is golden
 
