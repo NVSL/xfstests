@@ -667,6 +667,15 @@ _setup_large_ext4_fs()
 	return 0
 }
 
+_scratch_mkfs_nova()
+{
+    _scratch_cleanup_files
+    echo $MOUNT_PROG -t $FSTYP $SCRATCH_DEV $SCRATCH_MNT -o init
+    echo $UMOUNT_PROG $SCRATCH_MNT
+    $MOUNT_PROG -t $FSTYP $SCRATCH_DEV $SCRATCH_MNT -o init
+    $UMOUNT_PROG $SCRATCH_MNT
+}
+
 _scratch_mkfs_ext4()
 {
 	local mkfs_cmd="$MKFS_EXT4_PROG -F"
@@ -722,8 +731,10 @@ _test_mkfs()
 	# do nothing for pvfs2
 	;;
     NOVA)
-	$MOUNT_PROG -t $FSTYP $TEST_DEV $TEST_DIR -o init
-	$UMOUNT_PROG $TEST_DIR
+	 #echo B $MOUNT_PROG -t $FSTYP $TEST_DEV $TEST_DIR -o init
+	 $MOUNT_PROG -t $FSTYP $TEST_DEV $TEST_DIR -o init
+	 #echo C $UMOUNT_PROG $TEST_DIR
+	 $UMOUNT_PROG $TEST_DIR
 	;;
     udf)
         $MKFS_UDF_PROG $MKFS_OPTIONS $* $TEST_DEV > /dev/null
@@ -835,11 +846,6 @@ _scratch_mkfs()
 		mkfs_cmd="$MKFS_UDF_PROG"
 		mkfs_filter="cat"
 		;;
-        NOVA)
-		_scratch_cleanup_files
-		mkfs_filter="cat"
-		mkfs_cmd=true
-		;;
         pmfs)
 		_scratch_cleanup_files
 		mkfs_filter="cat"
@@ -871,10 +877,9 @@ _scratch_mkfs()
 		mkfs_filter="grep -v -e ^mkfs\.ocfs2"
 		;;
 	NOVA)
-	    mkfs_cmd="$MOUNT_PROG -t $FSTYP $SCRATCH_DEV $SCRATCH_DIR -o init && $UMOUNT_PROG $TEST_DIR"
-	    mkfs_filter="cat"
-	    ;;
-
+	        _scratch_mkfs_nova
+		return $?
+		;;
 	*)
 		mkfs_cmd="yes | $MKFS_PROG -t $FSTYP --"
 		mkfs_filter="cat"
@@ -3468,7 +3473,13 @@ init_rc()
 	if [ -z "`_fs_type $TEST_DEV`" ]
 	then
 		# $TEST_DEV is not mounted
-		if ! _test_mount
+	        if ! _test_mkfs
+		then
+		    echo "common/rc: could not mount create fs"
+		    exit 1
+		fi
+		    
+	        if ! _test_mount
 		then
 			echo "common/rc: retrying test device mount with external set"
 			[ "$USE_EXTERNAL" != "yes" ] && export USE_EXTERNAL=yes

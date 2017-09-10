@@ -538,9 +538,10 @@ for section in $HOST_OPTIONS_SECTIONS; do
 	fi
 
 	sect_start=`_wallclock`
+	echo RECREATE_TEST_DEV=$RECREATE_TEST_DEV
 	if $RECREATE_TEST_DEV || [ "$OLD_FSTYP" != "$FSTYP" ]; then
-		echo "RECREATING    -- $FSTYP on $TEST_DEV"
-		_test_unmount 2> /dev/null
+		echo "RECREATING    -- $FSTYP on $TEST_DEV" > /dev/tty
+		_test_unmount  > /dev/tty 2>&1 #2> /dev/null
 		if ! _test_mkfs >$tmp.err 2>&1
 		then
 			echo "our local _test_mkfs routine ..."
