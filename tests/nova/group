@@ -4,5 +4,5 @@
 # - comment line before each group is "new" description
 #
 001 auto
-002 auto nova-fail
-003 auto nova-crash
+002 auto 
+003 auto nova-fail
